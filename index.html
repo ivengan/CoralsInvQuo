@@ -45,7 +45,7 @@
         
         /* --- PREVIEW WRAPPER --- */
         #preview-wrapper { 
-            display: none; 
+            display: none; /* HIDDEN BY DEFAULT - Fixed the bug here */
             position: fixed; 
             top: 0; left: 0; 
             width: 100%; height: 100%; 
@@ -75,7 +75,7 @@
             min-height: 297mm; 
             height: auto; 
             background: white; 
-            margin: 0 auto; 
+            margin: 20px auto; 
             padding: 15mm; 
             box-sizing: border-box; 
             position: relative; 
@@ -85,7 +85,7 @@
             text-align: left;
         }
 
-        /* --- MOBILE SCALING FIX (CORRECTED) --- */
+        /* --- MOBILE SCALING FIX --- */
         @media (max-width: 800px) {
             #invoice-paper {
                 zoom: 0.44; /* Fits standard phone width */
@@ -95,7 +95,7 @@
             }
             #preview-wrapper {
                 text-align: center;
-                /* REMOVED: display: block; (This was causing the bug) */
+                /* display: block; REMOVED THIS LINE TO FIX THE BUG */
             }
         }
 
@@ -317,6 +317,7 @@
     function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
     function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
     function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
+    function formatDateDDMMYYYY(d) { if(!d) return ""; const [y, m, day] = d.split("-"); return `${day}-${m}-${y}`; }
 
     // --- MAIN INIT ---
     window.onload = function() {
@@ -573,7 +574,6 @@
                 ctrls.style.display = 'flex';
                 btn.innerText = originalText;
                 btn.disabled = false;
-
             }).catch(err => {
                 alert("PDF Error: " + err.message);
                 if (originalStyle) paper.setAttribute("style", originalStyle);
@@ -593,7 +593,7 @@
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
-        document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
+        document.getElementById('dispDate').innerText = formatDateDDMMYYYY(document.getElementById('invDate').value);
         
         const cNum = document.getElementById('clientContact').value; 
         const cName = document.getElementById('contactPerson').value;
@@ -601,7 +601,7 @@
         if(cName) contactDisplay += ` (${cName})`;
         document.getElementById('dispContact').innerText = contactDisplay;
 
-        document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
+        document.getElementById('dispEventDate').innerText = formatDateDDMMYYYY(document.getElementById('eventDate').value);
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
         document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
         document.getElementById('dispRemarks').innerText = document.getElementById('invRemarks').value;
