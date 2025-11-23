@@ -74,11 +74,25 @@
         .bold { font-weight: bold; }
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
-        .qr-section { width: 200px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
-        .qr-img { width: 120px; height: 120px; object-fit: contain; }
+        
+        /* UPDATED QR SECTION (3x BIGGER) */
+        .qr-section { 
+            width: 400px; /* Increased width */
+            text-align: center; 
+            border: 2px solid #005EB8; 
+            border-radius: 10px; 
+            padding: 10px; 
+            background: #fff; 
+            margin-top: 10px; 
+        }
+        .qr-img { 
+            width: 360px; /* Increased from 120px */
+            height: 360px; 
+            object-fit: contain; 
+        }
         
         /* Database Sync Indicator */
-        #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 12px; color: white; background: #000; padding: 5px 10px; border-radius: 5px; z-index: 3000; font-family: sans-serif; opacity: 0.7; }
+        #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
     </style>
 </head>
 <body>
@@ -86,7 +100,7 @@
 <div class="app-bar">
     <h2>Corals Invoice System</h2>
 </div>
-<div id="db-status">System Ready</div>
+<div id="db-status">Connecting...</div>
 
 <button id="backBtn" class="btn-back-floating" onclick="togglePreview()">← BACK TO EDIT</button>
 
@@ -147,7 +161,7 @@
     </div>
 
     <div class="card">
-        <h3>4. Actions</h3>
+        <h3>5. Actions</h3>
         <div class="btn-group">
             <button class="btn btn-success" onclick="convertAndSend()">Convert PDF and Send</button>
             <button class="btn btn-warning" style="background:#ffc107; color:black;" onclick="clearForm()">Clear Form</button>
@@ -159,7 +173,7 @@
 
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="text-align:center;">Company Settings (Synced)</h3>
+        <h3 style="text-align:center;">Company Settings</h3>
         <label>Company Logo (Max 200KB)</label><input type="file" id="settingLogoInput" accept="image/*">
         <label>Payment QR Code (Max 200KB)</label><input type="file" id="settingQRInput" accept="image/*">
         <hr>
@@ -248,7 +262,7 @@
     let liveInvNo = 1771;
     let liveQtNo = 238;
 
-    // --- FIREBASE CONFIGURATION (PRE-FILLED FOR YOU) ---
+    /* --- 1. FIREBASE INITIALIZATION (PRE-FILLED) --- */
     const firebaseConfig = {
       apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
       authDomain: "coralsinvoicedb.firebaseapp.com",
@@ -259,13 +273,14 @@
       appId: "1:993211696860:web:2e971078ececdff03ed619"
     };
 
-    // Init Firebase Safe Mode
     try {
-        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-        db = firebase.database();
-    } catch (e) { console.error("Firebase Init Error:", e); }
+        if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && typeof firebase !== 'undefined') {
+            if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+            db = firebase.database();
+        }
+    } catch (e) { console.error("Firebase Error:", e); }
 
-    // --- STARTUP ---
+    /* --- 2. STARTUP --- */
     window.onload = function() {
         if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
         addItemRow(); 
@@ -279,21 +294,12 @@
         const status = document.getElementById('db-status');
         if (db) {
             status.innerText = "DB: Connected";
-            status.style.background = "#28a745"; // Green for Success
-            
-            // 1. Sync Settings
+            status.style.background = "#28a745"; // Green
             db.ref('settings').on('value', (snapshot) => {
                 const val = snapshot.val();
-                if(val) { 
-                    currentSettings = val; 
-                    applySettingsToUI(val); 
-                } else { 
-                    // If new DB, save defaults
-                    db.ref('settings').set(currentSettings); 
-                }
+                if(val) { currentSettings = val; applySettingsToUI(val); }
+                else { db.ref('settings').set(currentSettings); }
             });
-
-            // 2. Sync Counters
             db.ref('counters').on('value', (snapshot) => {
                 const val = snapshot.val();
                 if(val) {
@@ -305,12 +311,18 @@
                 }
             });
         } else {
-            status.innerText = "Mode: Local (Error)";
+            status.innerText = "Mode: Local (Offline)";
             status.style.background = "#dc3545";
+            const s = localStorage.getItem('compSettings');
+            if(s) { currentSettings = JSON.parse(s); applySettingsToUI(currentSettings); }
+            
+            liveInvNo = parseInt(localStorage.getItem('lastInvNo')) || 1771;
+            liveQtNo = parseInt(localStorage.getItem('lastQtNo')) || 238;
+            updateDocNoDisplay();
         }
     }
 
-    // --- REST OF FUNCTIONS ---
+    /* --- 3. FUNCTIONS --- */
     function updateDocNoDisplay() {
         const type = document.getElementById('docType').value;
         document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
@@ -330,7 +342,6 @@
     function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
 
     async function saveSettings() {
-        // Read images to Base64
         const readFile = (file) => new Promise((resolve) => {
             if (!file) return resolve(null);
             const r = new FileReader();
@@ -352,14 +363,18 @@
             acc: document.getElementById('setAcc').value,
             payable: document.getElementById('setPayable').value,
             notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
-            logo: newLogo || currentSettings.logo || "", // Use new or keep old
+            logo: newLogo || currentSettings.logo || "",
             qr: newQR || currentSettings.qr || ""
         };
 
         if(db) {
-            db.ref('settings').set(s); // Push to cloud
+            db.ref('settings').set(s);
+        } else {
+            localStorage.setItem('compSettings', JSON.stringify(s));
+            currentSettings = s;
+            applySettingsToUI(s);
         }
-        alert("Settings Saved & Synced!");
+        alert("Settings Saved!");
         closeSettings();
     }
 
@@ -392,9 +407,8 @@
 
         paper.style.display = 'block'; ui.style.display = 'none'; backBtn.style.display = 'none';
 
-        // Check libraries
         if (!window.jspdf || !window.html2canvas) {
-            alert("System libraries loading... please check internet.");
+            alert("Libraries not loaded.");
             paper.style.display = 'none'; ui.style.display = 'block'; backBtn.style.display = 'block';
             return;
         }
@@ -411,11 +425,17 @@
             const fname = getFilename();
             doc.save(fname);
 
-            // Increment counter in DB
             const type = document.getElementById('docType').value;
             if(db) {
                 const ref = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
                 ref.transaction((val) => (val || 0) + 1);
+            } else {
+                if(type === 'INVOICE') {
+                    liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo);
+                } else {
+                    liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo);
+                }
+                updateDocNoDisplay();
             }
 
             paper.style.display = 'none'; ui.style.display = 'block';
@@ -432,13 +452,17 @@
             ["Total", document.getElementById('dispTotal').innerText],
             [""], ["Description", "Qty", "Price", "Total"]
         ];
+        
         const items = getItemsFromDOM();
         items.forEach(i => {
             if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]);
             else data.push([" - " + i.desc]);
         });
-        const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx");
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+        XLSX.writeFile(wb, "Corals_Data.xlsx");
     }
 
     function togglePreview() {
