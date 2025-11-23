@@ -11,6 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     
+    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -74,25 +77,11 @@
         .bold { font-weight: bold; }
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
+        .qr-section { width: 400px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
+        .qr-img { width: 360px; height: 360px; object-fit: contain; }
         
-        /* UPDATED QR SECTION (3x BIGGER) */
-        .qr-section { 
-            width: 400px; /* Increased width */
-            text-align: center; 
-            border: 2px solid #005EB8; 
-            border-radius: 10px; 
-            padding: 10px; 
-            background: #fff; 
-            margin-top: 10px; 
-        }
-        .qr-img { 
-            width: 360px; /* Increased from 120px */
-            height: 360px; 
-            object-fit: contain; 
-        }
-        
-        /* Database Sync Indicator */
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
+        #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -106,18 +95,25 @@
 
 <div class="editor-section" id="editorUI">
     <div class="card">
-        <h3>1. Details</h3>
+        <h3>1. Import Previous Invoice (PDF)</h3>
+        <input type="file" id="ocrInput" accept="application/pdf">
+        <div id="loader">Processing PDF...</div>
+        <button class="btn btn-dark" onclick="triggerFillData()">Load PDF Data</button>
+    </div>
+
+    <div class="card">
+        <h3>2. Details</h3>
         <label>Document Type</label>
         <select id="docType" onchange="updateDocNoDisplay()"><option>INVOICE</option><option>QUOTATION</option></select>
         <div class="row-inputs" style="border:none; padding:0;">
-            <label>Auto-Generated No.</label>
-            <input id="invNo" placeholder="Syncing..." readonly style="background:#eee;">
+            <label>Invoice/Quote No. (Editable)</label>
+            <input id="invNo" placeholder="Loading..." style="background:#fff; border:2px solid #f0ad4e; font-weight:bold;">
             <input id="invDate" type="date">
         </div>
     </div>
 
     <div class="card">
-        <h3>2. Client Info</h3>
+        <h3>3. Client Info</h3>
         <label>Customer Name</label>
         <input id="clientName" placeholder="CLIENT NAME" oninput="this.value = this.value.toUpperCase()">
         <label>Address</label>
@@ -141,7 +137,7 @@
     </div>
 
     <div class="card">
-        <h3>3. Items</h3>
+        <h3>4. Items</h3>
         <div id="items-container"></div>
         <div class="btn-group"><button class="btn btn-primary" onclick="addItemRow()">+ Add Item</button><button class="btn btn-info" onclick="addMenuRow()">+ Add Menu</button></div>
     </div>
@@ -249,20 +245,7 @@
 </div>
 
 <script>
-    // --- GLOBAL VARIABLES ---
-    let db = null;
-    let currentSettings = {
-        name: "CORALS CAFE", reg: "(Co.Reg.No: 002632312-V)",
-        addr: "No. 42-G, Sierra Zentro 1, Jalan Sierra 10/2<br>Bandar 16 Sierra, 47120 Puchong, Selangor.",
-        contact: "+6012-236 5895 | coralscafe@gmail.com",
-        bank: "MAYBANK", acc: "514 833 414 938", payable: "CORALS CAFE",
-        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts.",
-        logo: "", qr: ""
-    };
-    let liveInvNo = 1771;
-    let liveQtNo = 238;
-
-    /* --- 1. FIREBASE INITIALIZATION (PRE-FILLED) --- */
+    // --- FIREBASE CONFIG (CORRECT) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
       authDomain: "coralsinvoicedb.firebaseapp.com",
@@ -273,130 +256,184 @@
       appId: "1:993211696860:web:2e971078ececdff03ed619"
     };
 
-    try {
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && typeof firebase !== 'undefined') {
-            if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-            db = firebase.database();
-        }
-    } catch (e) { console.error("Firebase Error:", e); }
+    // --- VARIABLES ---
+    let db = null;
+    let currentSettings = { name: "CORALS CAFE", reg: "", addr: "", contact: "", bank: "", acc: "", payable: "", notes: "", logo: "", qr: "" };
+    let liveInvNo = 1771, liveQtNo = 238;
 
-    /* --- 2. STARTUP --- */
+    // --- INIT ---
+    try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error("Firebase Error", e); }
+
     window.onload = function() {
         if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-        addItemRow(); 
-        resetDates(); 
-        addTimeInput(); 
-        toggleLogistics();
-        initDataLoad();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        addItemRow(); resetDates(); addTimeInput(); toggleLogistics(); initDataLoad();
     };
 
     function initDataLoad() {
         const status = document.getElementById('db-status');
         if (db) {
-            status.innerText = "DB: Connected";
-            status.style.background = "#28a745"; // Green
-            db.ref('settings').on('value', (snapshot) => {
-                const val = snapshot.val();
-                if(val) { currentSettings = val; applySettingsToUI(val); }
-                else { db.ref('settings').set(currentSettings); }
-            });
-            db.ref('counters').on('value', (snapshot) => {
-                const val = snapshot.val();
-                if(val) {
-                    liveInvNo = val.invoice || 1771;
-                    liveQtNo = val.quotation || 238;
-                    updateDocNoDisplay();
-                } else {
-                    db.ref('counters').set({ invoice: 1771, quotation: 238 });
+            status.innerText = "DB: Connected"; status.style.background = "#28a745";
+            db.ref('settings').on('value', (snap) => { const v = snap.val(); if(v) { currentSettings = v; applySettingsToUI(v); } });
+            db.ref('counters').on('value', (snap) => { 
+                const v = snap.val(); 
+                if(v) { 
+                    liveInvNo = v.invoice || 1771; 
+                    liveQtNo = v.quotation || 238; 
+                    // Update display only if field is empty or matches system count
+                    const cur = document.getElementById('invNo').value;
+                    if(!cur || cur == (liveInvNo-1) || cur == (liveQtNo-1)) updateDocNoDisplay();
                 }
+                else { db.ref('counters').set({ invoice: 1771, quotation: 238 }); }
             });
         } else {
-            status.innerText = "Mode: Local (Offline)";
-            status.style.background = "#dc3545";
-            const s = localStorage.getItem('compSettings');
-            if(s) { currentSettings = JSON.parse(s); applySettingsToUI(currentSettings); }
-            
+            status.innerText = "Mode: Local"; status.style.background = "#dc3545";
+            const s = localStorage.getItem('compSettings'); if(s) applySettingsToUI(JSON.parse(s));
             liveInvNo = parseInt(localStorage.getItem('lastInvNo')) || 1771;
             liveQtNo = parseInt(localStorage.getItem('lastQtNo')) || 238;
             updateDocNoDisplay();
         }
     }
 
-    /* --- 3. FUNCTIONS --- */
+    // --- HELPER FUNCTIONS MOVED UP ---
+    function getItemsFromDOM() {
+        const container = document.getElementById('items-container');
+        const data = [];
+        for (let i = 0; i < container.children.length; i++) {
+            const row = container.children[i]; const type = row.getAttribute('data-type');
+            if(type === 'item') {
+                data.push({ type: 'item', desc: row.querySelector('.i-desc').value, remark: row.querySelector('.i-remark').value, 
+                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, price: parseFloat(row.querySelector('.i-price').value) || 0, isLogistics: false });
+            } else if (type === 'menu') { data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); }
+        }
+        const method = document.getElementById('deliveryMethod').value;
+        const logQty = parseFloat(document.getElementById('logQty').value) || 0; const logPrice = parseFloat(document.getElementById('logPrice').value) || 0;
+        const setupQty = parseFloat(document.getElementById('setupQty').value) || 0; const setupPrice = parseFloat(document.getElementById('setupPrice').value) || 0;
+        
+        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' }); } 
+        else if (method === 'Set Up') {
+            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' });
+            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: setupQty, price: setupPrice, isLogistics: true, subType: 'setup' });
+        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); }
+        return data;
+    }
+
+    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
+    function formatTime12hr(t) { if(!t) return ""; let [h,m] = t.split(":"); let ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; }
+    function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
+    function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
+    function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
+
+    // --- CORE LOGIC ---
+    function triggerFillData() {
+        const input = document.getElementById('ocrInput');
+        if (!input.files || !input.files[0]) { alert("Please select a PDF file."); return; }
+        const file = input.files[0];
+        if (file.type !== 'application/pdf') { alert("Only PDF files allowed."); return; }
+        
+        document.getElementById('loader').style.display = 'block';
+        const reader = new FileReader();
+        reader.onload = function() {
+            const typedarray = new Uint8Array(this.result);
+            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                pdf.getPage(1).then(page => {
+                    page.getTextContent().then(textContent => {
+                        // Primary Strategy: Text Layer
+                        let rawText = textContent.items.map(item => item.str).join(" ");
+                        
+                        // Secondary Strategy: Visual OCR (Backup)
+                        const scale = 2.5;
+                        const viewport = page.getViewport({ scale: scale });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        
+                        page.render({ canvasContext: context, viewport: viewport }).promise.then(() => {
+                            canvas.toBlob(blob => {
+                                Tesseract.recognize(blob, 'eng').then(out => {
+                                    const combinedText = rawText + "\n" + out.data.text;
+                                    parseExtractedData(combinedText);
+                                    document.getElementById('loader').style.display = 'none';
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function parseExtractedData(text) {
+        alert("PDF Data Extracted!");
+        
+        // 1. Header
+        const invMatch = text.match(/(?:NO|INV)[.:\s]*([A-Z0-9-]+)/i);
+        if(invMatch) document.getElementById('invNo').value = invMatch[1].trim();
+
+        const clientMatch = text.match(/(?:Bill To|Client)[:\s]+(.*?)(?:\n|Address|Date|$)/i);
+        if(clientMatch && clientMatch[1].length > 3) document.getElementById('clientName').value = clientMatch[1].trim().toUpperCase();
+
+        const dateMatch = text.match(/Date\s*(?:of)?\s*(?:the)?\s*[:.]?\s*(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}|\d{2,4}[-/]\d{1,2}[-/]\d{1,4})/i);
+        if(dateMatch) {
+            let clean = dateMatch[1].replace(/(\d+)(st|nd|rd|th)/, '$1');
+            let d = Date.parse(clean);
+            if(!isNaN(d)) {
+                document.getElementById('invDate').valueAsDate = new Date(d);
+                document.getElementById('eventDate').valueAsDate = new Date(d);
+            }
+        }
+
+        // 2. Smart Logistics
+        if (text.includes("DELIVERY")) { document.getElementById('deliveryMethod').value = "Delivery"; } 
+        else if (text.includes("SET UP") || text.includes("TRANSPORT STANDARD")) { document.getElementById('deliveryMethod').value = "Set Up"; } 
+        else { document.getElementById('deliveryMethod').value = "Self Pick Up"; }
+        toggleLogistics();
+
+        // 3. Items (Robust Parsing)
+        document.getElementById('items-container').innerHTML = '';
+        const lines = text.split('\n');
+        let itemsFound = false;
+
+        lines.forEach(line => {
+            // Regex to find lines like: "1  LUNCH... 20  RM 40  RM 800"
+            // Allows variations in spacing and RM presence
+            const itemRegex = /^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:RM)?\s?([\d.,]+)\s+(?:RM)?\s?([\d.,]+)/i;
+            const match = line.match(itemRegex);
+            
+            if (match) {
+                const desc = match[2].trim();
+                const qty = match[3];
+                const price = match[4].replace(/,/g, '');
+                
+                // Avoid duplicating logistics which are handled by the dropdown
+                if (!desc.toUpperCase().includes("DELIVERY") && !desc.toUpperCase().includes("TRANSPORT") && !desc.toUpperCase().includes("SET UP")) {
+                    itemsFound = true;
+                    addItemRow();
+                    const rows = document.querySelectorAll('.row-inputs');
+                    const lastRow = rows[rows.length - 1];
+                    lastRow.querySelector('.i-desc').value = desc;
+                    lastRow.querySelector('.i-qty').value = qty;
+                    lastRow.querySelector('.i-price').value = price;
+                } else {
+                    // Fill logistics prices if found in table
+                    if(desc.includes("TRANSPORT") || desc.includes("DELIVERY")) document.getElementById('logPrice').value = price;
+                    if(desc.includes("SET UP")) document.getElementById('setupPrice').value = price;
+                }
+            }
+        });
+        
+        if(!itemsFound) addItemRow(); // Ensure at least one row
+    }
+
+    // --- UI & LOGIC FUNCTIONS ---
     function updateDocNoDisplay() {
         const type = document.getElementById('docType').value;
-        document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
-    }
-
-    function openSettings() { 
-        document.getElementById('settingsModal').style.display = 'block';
-        document.getElementById('setCompName').value = currentSettings.name;
-        document.getElementById('setRegNo').value = currentSettings.reg;
-        document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n');
-        document.getElementById('setContact').value = currentSettings.contact;
-        document.getElementById('setBank').value = currentSettings.bank;
-        document.getElementById('setAcc').value = currentSettings.acc;
-        document.getElementById('setPayable').value = currentSettings.payable;
-        document.getElementById('setNotes').value = currentSettings.notes.replace(/<br>/g, '\n');
-    }
-    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-
-    async function saveSettings() {
-        const readFile = (file) => new Promise((resolve) => {
-            if (!file) return resolve(null);
-            const r = new FileReader();
-            r.onload = (e) => resolve(e.target.result);
-            r.readAsDataURL(file);
-        });
-
-        const lIn = document.getElementById('settingLogoInput').files[0]; 
-        const qIn = document.getElementById('settingQRInput').files[0];
-        const newLogo = await readFile(lIn);
-        const newQR = await readFile(qIn);
-
-        const s = {
-            name: document.getElementById('setCompName').value,
-            reg: document.getElementById('setRegNo').value,
-            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'),
-            contact: document.getElementById('setContact').value,
-            bank: document.getElementById('setBank').value,
-            acc: document.getElementById('setAcc').value,
-            payable: document.getElementById('setPayable').value,
-            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
-            logo: newLogo || currentSettings.logo || "",
-            qr: newQR || currentSettings.qr || ""
-        };
-
-        if(db) {
-            db.ref('settings').set(s);
-        } else {
-            localStorage.setItem('compSettings', JSON.stringify(s));
-            currentSettings = s;
-            applySettingsToUI(s);
+        const current = document.getElementById('invNo').value;
+        if (!current || current == (liveInvNo-1) || current == (liveQtNo-1)) {
+            document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
         }
-        alert("Settings Saved!");
-        closeSettings();
-    }
-
-    function applySettingsToUI(s) {
-        document.getElementById('dispCompName').innerText = s.name;
-        document.getElementById('dispRegHeader').innerText = s.reg;
-        document.getElementById('dispAddr').innerHTML = s.addr;
-        document.getElementById('dispContactInfo').innerText = s.contact;
-        document.getElementById('dispBank').innerText = s.bank;
-        document.getElementById('dispAcc').innerText = s.acc;
-        document.getElementById('dispPayable').innerText = s.payable;
-        document.getElementById('dispRegFooter').innerText = s.reg;
-        document.getElementById('dispNotes').innerHTML = s.notes;
-        if(s.logo) document.getElementById('printLogo').src = s.logo;
-        if(s.qr) document.getElementById('printQR').src = s.qr;
-    }
-
-    function getFilename() {
-        const type = document.getElementById('docType').value;
-        const no = document.getElementById('invNo').value;
-        const client = document.getElementById('clientName').value || "CLIENT";
-        return (type === 'INVOICE') ? `CCIR-${no} - ${client}.pdf` : `CEQ${no} - ${client}.pdf`;
     }
 
     function convertAndSend() {
@@ -404,72 +441,38 @@
         const paper = document.getElementById('invoice-paper');
         const ui = document.getElementById('editorUI');
         const backBtn = document.getElementById('backBtn');
+        const filename = getFilename();
 
         paper.style.display = 'block'; ui.style.display = 'none'; backBtn.style.display = 'none';
 
-        if (!window.jspdf || !window.html2canvas) {
-            alert("Libraries not loaded.");
-            paper.style.display = 'none'; ui.style.display = 'block'; backBtn.style.display = 'block';
-            return;
-        }
-
-        const { jsPDF } = window.jspdf;
-        
         html2canvas(paper, { scale: 2 }).then(canvas => {
             const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 210; 
-            const imgHeight = canvas.height * imgWidth / canvas.width;
+            const imgWidth = 210; const imgHeight = canvas.height * imgWidth / canvas.width;
+            const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
             doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            
-            const fname = getFilename();
-            doc.save(fname);
+            doc.save(filename);
 
+            // Increment logic: Only if using live number
+            const currentNo = document.getElementById('invNo').value;
             const type = document.getElementById('docType').value;
-            if(db) {
+            let isNew = false;
+            if(type === 'INVOICE' && currentNo == liveInvNo) isNew = true;
+            if(type === 'QUOTATION' && currentNo == liveQtNo) isNew = true;
+
+            if(isNew && db) {
                 const ref = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
                 ref.transaction((val) => (val || 0) + 1);
-            } else {
-                if(type === 'INVOICE') {
-                    liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo);
-                } else {
-                    liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo);
-                }
+            } else if (isNew) {
+                if(type === 'INVOICE') { liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } 
+                else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); }
                 updateDocNoDisplay();
             }
 
             paper.style.display = 'none'; ui.style.display = 'block';
-            
-            const text = `Hi, please find the attached ${fname}.`;
+            const text = `Hi, please find the attached ${filename}.`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         });
-    }
-
-    function exportExcel() {
-        const data = [
-            ["Doc No", document.getElementById('invNo').value],
-            ["Client", document.getElementById('clientName').value],
-            ["Total", document.getElementById('dispTotal').innerText],
-            [""], ["Description", "Qty", "Price", "Total"]
-        ];
-        
-        const items = getItemsFromDOM();
-        items.forEach(i => {
-            if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]);
-            else data.push([" - " + i.desc]);
-        });
-
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-        XLSX.writeFile(wb, "Corals_Data.xlsx");
-    }
-
-    function togglePreview() {
-        updatePreviewData();
-        const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn');
-        if(p.style.display === 'none') { p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block'; window.scrollTo(0,0); } 
-        else { p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none'; }
     }
 
     function updatePreviewData() {
@@ -477,8 +480,11 @@
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
         document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
-        const cNum = document.getElementById('clientContact').value; const cName = document.getElementById('contactPerson').value;
+        
+        const cNum = document.getElementById('clientContact').value;
+        const cName = document.getElementById('contactPerson').value;
         document.getElementById('dispContact').innerText = cName ? `${cNum} (${cName})` : cNum;
+
         document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
         document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
@@ -520,43 +526,82 @@
         document.getElementById('dispWords').innerText = getMoneyText(final.toFixed(2));
     }
 
-    function getItemsFromDOM() {
-        const container = document.getElementById('items-container');
-        const data = [];
-        for (let i = 0; i < container.children.length; i++) {
-            const row = container.children[i]; const type = row.getAttribute('data-type');
-            if(type === 'item') {
-                data.push({ type: 'item', desc: row.querySelector('.i-desc').value, remark: row.querySelector('.i-remark').value, qty: parseFloat(row.querySelector('.i-qty').value) || 0, price: parseFloat(row.querySelector('.i-price').value) || 0, isLogistics: false });
-            } else if (type === 'menu') { data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); }
-        }
-        const method = document.getElementById('deliveryMethod').value;
-        const lQ = parseFloat(document.getElementById('logQty').value) || 0; const lP = parseFloat(document.getElementById('logPrice').value) || 0;
-        const sQ = parseFloat(document.getElementById('setupQty').value) || 0; const sP = parseFloat(document.getElementById('setupPrice').value) || 0;
-        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' }); } 
-        else if (method === 'Set Up') {
-            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' });
-            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: sQ, price: sP, isLogistics: true, subType: 'setup' });
-        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); }
-        return data;
+    function togglePreview() {
+        updatePreviewData();
+        const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn');
+        if(p.style.display === 'none') { p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block'; window.scrollTo(0,0); } 
+        else { p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none'; }
     }
 
+    function exportExcel() {
+        const wb = XLSX.utils.book_new();
+        const data = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ];
+        const items = getItemsFromDOM();
+        items.forEach(i => { if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]); else data.push([" - " + i.desc]); });
+        const ws = XLSX.utils.aoa_to_sheet(data); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx");
+    }
+
+    function openSettings() { 
+        document.getElementById('settingsModal').style.display = 'block';
+        document.getElementById('setCompName').value = currentSettings.name;
+        document.getElementById('setRegNo').value = currentSettings.reg;
+        document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n');
+        document.getElementById('setContact').value = currentSettings.contact;
+        document.getElementById('setBank').value = currentSettings.bank;
+        document.getElementById('setAcc').value = currentSettings.acc;
+        document.getElementById('setPayable').value = currentSettings.payable;
+        document.getElementById('setNotes').value = currentSettings.notes.replace(/<br>/g, '\n');
+    }
+    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+
+    async function saveSettings() {
+        const readFile = (file) => new Promise((resolve) => {
+            if (!file) return resolve(null);
+            const r = new FileReader();
+            r.onload = (e) => resolve(e.target.result);
+            r.readAsDataURL(file);
+        });
+        const lIn = document.getElementById('settingLogoInput').files[0]; 
+        const qIn = document.getElementById('settingQRInput').files[0];
+        const newLogo = await readFile(lIn);
+        const newQR = await readFile(qIn);
+        const s = {
+            name: document.getElementById('setCompName').value, reg: document.getElementById('setRegNo').value,
+            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'), contact: document.getElementById('setContact').value,
+            bank: document.getElementById('setBank').value, acc: document.getElementById('setAcc').value, payable: document.getElementById('setPayable').value,
+            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
+            logo: newLogo || currentSettings.logo || "", qr: newQR || currentSettings.qr || ""
+        };
+        if(db) { db.ref('settings').set(s); } else { localStorage.setItem('compSettings', JSON.stringify(s)); currentSettings = s; applySettingsToUI(s); }
+        alert("Settings Saved!"); closeSettings();
+    }
+
+    function applySettingsToUI(s) {
+        document.getElementById('dispCompName').innerText = s.name; document.getElementById('dispRegHeader').innerText = s.reg;
+        document.getElementById('dispAddr').innerHTML = s.addr; document.getElementById('dispContactInfo').innerText = s.contact;
+        document.getElementById('dispBank').innerText = s.bank; document.getElementById('dispAcc').innerText = s.acc;
+        document.getElementById('dispPayable').innerText = s.payable; document.getElementById('dispRegFooter').innerText = s.reg;
+        document.getElementById('dispNotes').innerHTML = s.notes;
+        if(s.logo) document.getElementById('printLogo').src = s.logo; if(s.qr) document.getElementById('printQR').src = s.qr;
+    }
+
+    function getFilename() {
+        const type = document.getElementById('docType').value;
+        const no = document.getElementById('invNo').value;
+        const client = document.getElementById('clientName').value || "CLIENT";
+        return (type === 'INVOICE') ? `CCIR-${no} - ${client}.pdf` : `CEQ${no} - ${client}.pdf`;
+    }
+    
+    function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
     function addTimeInput(val = "") { const c = document.getElementById('timeContainer'); const i = document.createElement('input'); i.type = 'time'; i.className = 'evt-time-input'; i.value = val; i.style.width = "100%"; c.appendChild(i); }
     function removeTimeInput() { const c = document.getElementById('timeContainer'); if(c.children.length > 1) c.removeChild(c.lastChild); }
-    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
     function addItemRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME (AUTO CAPS)" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark(s) - Sentence Case" class="i-remark" onchange="formatSentenceCase(this)"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
     function addMenuRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail (Sentence Case)" class="i-desc" onchange="formatSentenceCase(this)"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
     function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
-    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); }
-    function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
+    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
     function toggleLogistics() { const m = document.getElementById('deliveryMethod').value; const b = document.getElementById('logistics-box'); const s = document.getElementById('setupFeeRow'); if (m === 'Self Pick Up') { b.style.display = 'none'; } else { b.style.display = 'block'; document.getElementById('logQtyLabel').innerText = (m === 'Delivery') ? "Qty (TRIPS)" : "Qty (Transport)"; s.style.display = (m === 'Set Up') ? "flex" : "none"; } }
     function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
     function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
-    
-    function formatTime12hr(t) { if(!t) return ""; let [h,m] = t.split(":"); let ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; }
-    function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
-    function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
-    function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
-
 </script>
 </body>
 </html>
