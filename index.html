@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#333333">
     <title>Corals Invoice System</title>
     <link rel="manifest" href="manifest.json">
@@ -16,7 +16,7 @@
 
     <style>
         /* --- APP STYLING --- */
-        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
         .app-bar { background: #333; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .editor-section { padding: 15px; max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -44,7 +44,18 @@
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
         
         /* --- PREVIEW AREA WRAPPER --- */
-        #preview-wrapper { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #333; z-index: 1500; overflow-y: auto; padding-bottom: 80px; }
+        #preview-wrapper { 
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: #333; 
+            z-index: 1500; 
+            overflow-y: auto; /* Scrollable vertically */
+            overflow-x: hidden; 
+            padding-bottom: 80px; 
+            text-align: center; /* Helps center inline-block children */
+        }
         
         /* CONTROLS BAR (Fixed Bottom in Preview) */
         #preview-controls {
@@ -61,27 +72,29 @@
             min-height: 297mm; 
             height: auto; 
             background: white; 
-            margin: 0 auto; 
+            margin: 20px auto; /* Centers the paper */
             padding: 15mm; 
             box-sizing: border-box; 
             position: relative; 
             color: #000; 
             transform-origin: top center;
+            display: inline-block; /* Allows text-align: center on parent to center this */
+            text-align: left; /* Reset text alignment inside paper */
         }
 
         /* Mobile Fit-to-Screen Logic */
         @media (max-width: 800px) {
             #invoice-paper {
                 transform: scale(0.45); 
-                margin-top: -20px;
-                margin-left: -5px;
+                margin-top: 10px;
+                /* Ensure it stays centered by removing left margins */
                 margin-bottom: -130%; 
                 box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             }
         }
 
         .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .logo-area { width: 160px; height: 160px; text-align: center; }
+        .logo-area { width: 150px; height: 150px; text-align: center; }
         .logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; border: 2px dotted #333; padding: 5px; }
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
@@ -116,7 +129,7 @@
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
         .qr-section { width: 400px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
-        .qr-img { width: 360px; height: 460px; object-fit: contain; }
+        .qr-img { width: 340px; height: 460px; object-fit: contain; }
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
         #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
     </style>
@@ -226,7 +239,6 @@
     // --- INIT ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
-    // ⬇️ PASTE FIREBASE KEYS HERE ⬇️
     const firebaseConfig = {
       apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
       authDomain: "coralsinvoicedb.firebaseapp.com",
@@ -492,9 +504,17 @@
         // Hide controls for capture
         ctrls.style.display = 'none';
         
+        // ENSURE JS PDF IS LOADED
+        if (!window.jspdf) { 
+            alert("Error: PDF Library not loaded. Please refresh."); 
+            ctrls.style.display = 'flex';
+            return;
+        }
+        
+        const { jsPDF } = window.jspdf;
+
         html2canvas(paper, {scale:2, useCORS: true}).then(c => {
             const img = c.toDataURL('image/png');
-            const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', [210, c.height*210/c.width]);
             doc.addImage(img, 'PNG', 0, 0, 210, c.height*210/c.width);
             doc.save(f);
