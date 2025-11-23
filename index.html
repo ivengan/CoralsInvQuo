@@ -247,26 +247,25 @@
     /* --- 1. FIREBASE CONFIGURATION --- */
     
     // FIREBASE CONFIG
-    const firebaseConfig = {
-  apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
-  authDomain: "coralsinvoicedb.firebaseapp.com",
-  projectId: "coralsinvoicedb",
-  storageBucket: "coralsinvoicedb.firebasestorage.app",
-  messagingSenderId: "993211696860",
-  appId: "1:993211696860:web:2e971078ececdff03ed619"
+	 const firebaseConfig = {
+	  apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
+	  authDomain: "coralsinvoicedb.firebaseapp.com",
+	  projectId: "coralsinvoicedb",
+	  storageBucket: "coralsinvoicedb.firebasestorage.app",
+	  messagingSenderId: "993211696860",
+	  appId: "1:993211696860:web:2e971078ececdff03ed619"
 };
 
-    // Initialize Firebase
     if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
     const db = firebase.database();
 
-    // --- DEFAULTS ---
     const DEFAULT_COMP = {
         name: "CORALS CAFE", reg: "(Co.Reg.No: 002632312-V)",
         addr: "No. 42-G, Sierra Zentro 1, Jalan Sierra 10/2<br>Bandar 16 Sierra, 47120 Puchong, Selangor.",
         contact: "+6012-236 5895 | coralscafe@gmail.com",
         bank: "MAYBANK", acc: "514 833 414 938", payable: "CORALS CAFE",
-        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts."
+        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts.",
+        logo: "", qr: "" // New fields for images
     };
     
     let currentSettings = DEFAULT_COMP;
@@ -275,19 +274,12 @@
 
     window.onload = function() {
         if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-        addItemRow(); 
-        resetDates();
-        addTimeInput(); 
-        toggleLogistics();
-        
-        // INITIALIZE DB LISTENERS
+        addItemRow(); resetDates(); addTimeInput(); toggleLogistics();
         initDatabaseListeners();
     };
 
     function initDatabaseListeners() {
         const status = document.getElementById('db-status');
-        
-        // 1. Listen for Settings Changes
         db.ref('settings').on('value', (snapshot) => {
             status.innerText = "DB: Synced";
             const val = snapshot.val();
@@ -295,12 +287,9 @@
                 currentSettings = val;
                 applySettingsToUI(val);
             } else {
-                // First run, save defaults
                 db.ref('settings').set(DEFAULT_COMP);
             }
         });
-
-        // 2. Listen for Counters
         db.ref('counters').on('value', (snapshot) => {
             const val = snapshot.val();
             if(val) {
@@ -318,10 +307,9 @@
         document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
     }
 
-    /* --- 2. SETTINGS LOGIC (DB) --- */
+    /* --- 2. SETTINGS LOGIC (DB + IMAGES) --- */
     function openSettings() { 
         document.getElementById('settingsModal').style.display = 'block'; 
-        // Load current DB values into Inputs
         document.getElementById('setCompName').value = currentSettings.name; 
         document.getElementById('setRegNo').value = currentSettings.reg;
         document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n'); 
@@ -334,7 +322,23 @@
     
     function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
     
-    function saveSettings() {
+    // Helper to read file to base64
+    const readFile = (file) => new Promise((resolve) => {
+        if (!file) return resolve(null);
+        const r = new FileReader();
+        r.onload = (e) => resolve(e.target.result);
+        r.readAsDataURL(file);
+    });
+
+    async function saveSettings() {
+        const lIn = document.getElementById('settingLogoInput').files[0]; 
+        const qIn = document.getElementById('settingQRInput').files[0];
+
+        // Wait for images to read
+        const newLogo = await readFile(lIn);
+        const newQR = await readFile(qIn);
+
+        // Update settings object
         const s = {
             name: document.getElementById('setCompName').value, 
             reg: document.getElementById('setRegNo').value,
@@ -343,32 +347,19 @@
             bank: document.getElementById('setBank').value, 
             acc: document.getElementById('setAcc').value, 
             payable: document.getElementById('setPayable').value,
-            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>')
+            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
+            // Use new image if uploaded, otherwise keep existing from DB
+            logo: newLogo || currentSettings.logo || "",
+            qr: newQR || currentSettings.qr || ""
         };
         
-        // Save Text Data to Firebase
+        // Push to Firebase (Images now sync!)
         db.ref('settings').set(s);
-
-        // Images (Still LocalStorage for performance/cost)
-        const lIn = document.getElementById('settingLogoInput'); 
-        const qIn = document.getElementById('settingQRInput');
-        const saveImg = (input, key) => { if(input.files[0]) { const r = new FileReader(); r.onload = (e) => { 
-            const base64 = e.target.result;
-            // Optional: Save small images to DB too? For now keep local to avoid size limits on free tier
-            // db.ref('images/' + key).set(base64); 
-            localStorage.setItem(key, base64); 
-            applySettingsToUI(currentSettings); // Refresh to show new img
-        }; r.readAsDataURL(input.files[0]); }};
-        
-        saveImg(lIn, 'companyLogo'); 
-        saveImg(qIn, 'paymentQR');
-
-        alert("Settings Saved & Synced!"); 
+        alert("Settings Saved & Synced to All Devices!"); 
         closeSettings();
     }
 
     function applySettingsToUI(s) {
-        // Text
         document.getElementById('dispCompName').innerText = s.name; 
         document.getElementById('dispRegHeader').innerText = s.reg;
         document.getElementById('dispAddr').innerHTML = s.addr; 
@@ -379,14 +370,11 @@
         document.getElementById('dispRegFooter').innerText = s.reg;
         document.getElementById('dispNotes').innerHTML = s.notes;
         
-        // Images (Local)
-        const logo = localStorage.getItem('companyLogo'); 
-        if(logo) document.getElementById('printLogo').src = logo;
-        const qr = localStorage.getItem('paymentQR'); 
-        if(qr) document.getElementById('printQR').src = qr;
+        if(s.logo) document.getElementById('printLogo').src = s.logo;
+        if(s.qr) document.getElementById('printQR').src = s.qr;
     }
 
-    /* --- 3. CONVERT & SEND (INCREMENT DB) --- */
+    /* --- 3. CONVERT & SEND --- */
     function convertAndSend() {
         updatePreviewData(); 
         const element = document.getElementById('invoice-paper');
@@ -407,13 +395,9 @@
             doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
             doc.save(filename); 
 
-            // INCREMENT DB COUNTER
             const type = document.getElementById('docType').value;
             const counterRef = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
-            
-            counterRef.transaction((currentVal) => {
-                return (currentVal || 0) + 1;
-            });
+            counterRef.transaction((currentVal) => (currentVal || 0) + 1);
 
             element.style.display = 'none';
             document.getElementById('editorUI').style.display = 'block';
@@ -492,9 +476,7 @@
     }
     function togglePreview() { const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn'); if(p.style.display === 'none') { updatePreviewData(); p.style.display='block'; u.style.display='none'; b.style.display='block'; window.scrollTo(0,0); } else { p.style.display='none'; u.style.display='block'; b.style.display='none'; } }
     
-    // ... (Existing updatePreviewData & exportExcel functions remain same as previous version, ensure they are included)
     function updatePreviewData() {
-        // (Use the exact same logic as the previous complete code for updating preview)
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
