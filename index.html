@@ -16,7 +16,7 @@
 
     <style>
         /* --- APP STYLING --- */
-        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
+        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 100px; }
         .app-bar { background: #333; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .editor-section { padding: 15px; max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
@@ -43,7 +43,7 @@
         .modal-content { background: white; width: 85%; max-width: 500px; margin: 5% auto; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
         
-        /* --- PREVIEW WRAPPER (Fixed Centering) --- */
+        /* --- PREVIEW WRAPPER --- */
         #preview-wrapper { 
             display: none; 
             position: fixed; 
@@ -54,13 +54,10 @@
             overflow-y: auto; 
             overflow-x: hidden;
             padding-bottom: 80px;
-            
-            /* FLEXBOX CENTERING */
-            display: none; /* Toggled via JS */
-            justify-content: center;
-            align-items: flex-start; 
+            text-align: center; 
         }
         
+        /* CONTROLS BAR */
         #preview-controls {
             display: none;
             position: fixed; bottom: 0; left: 0; width: 100%;
@@ -80,30 +77,31 @@
             box-sizing: border-box; 
             position: relative; 
             color: #000; 
-            transform-origin: top center;
+            text-align: left;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* --- MOBILE SCALING FIX --- */
+        /* --- MOBILE FIT SCREEN --- */
         @media (max-width: 800px) {
             #invoice-paper {
-                /* Scale down to fit mobile width */
-                transform: scale(0.42); 
-                margin-top: 20px;
-                /* Important: Compensate for the empty space caused by scaling */
-                margin-bottom: -145%; 
+                /* Use ZOOM to fit width perfectly without mess */
+                zoom: 0.46; 
+                margin: 20px auto;
+            }
+            #preview-wrapper {
+                padding-top: 10px;
             }
         }
 
         .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .logo-area { width: 150px; height: 150px; text-align: center; }
+        .logo-area { width: 120px; height: 120px; text-align: center; }
         .logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; border: 2px dotted #333; padding: 5px; }
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
         
-        /* BILL TO GRID */
+        /* UPDATED BILL TO (BOLD LABELS) */
         .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; float:left; }
-        .bill-grid { display: grid; grid-template-columns: 110px 1fr; gap: 2px; }
+        .bill-grid { display: grid; grid-template-columns: 120px 1fr; gap: 2px; }
         .bill-label { font-weight: bold; }
         .bill-val { word-wrap: break-word; }
 
@@ -112,7 +110,7 @@
         .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
         .event-col { width: 32%; }
         
-        /* TABLE */
+        /* THICK BORDER TABLE & NO ITALIC MENU */
         .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 2px solid #000; }
         .item-table th { background: #eee; border-bottom: 2px solid #000; border-right: 1px solid #000; padding: 8px; text-align: left; }
         .item-table th:last-child { border-right: none; }
@@ -130,7 +128,7 @@
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
         .qr-section { width: 400px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
-        .qr-img { width: 340px; height: 460px; object-fit: contain; }
+        .qr-img { width: 360px; height: 360px; object-fit: contain; }
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
         #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
     </style>
@@ -257,7 +255,7 @@
 
     try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error(e); }
 
-    // --- HELPER FUNCTIONS (DEFINED AT TOP) ---
+    // --- HELPER FUNCTIONS ---
     function getItemsFromDOM() {
         const container = document.getElementById('items-container');
         const data = [];
@@ -518,6 +516,7 @@
             doc.addImage(img, 'PNG', 0, 0, 210, c.height*210/c.width);
             doc.save(f);
             
+            // Increment
             const cur = document.getElementById('invNo').value;
             const typ = document.getElementById('docType').value;
             let isNew = false;
