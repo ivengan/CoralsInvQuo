@@ -10,10 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    
-    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -21,53 +18,94 @@
         /* --- APP STYLING --- */
         body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; -webkit-tap-highlight-color: transparent; }
         .app-bar { background: #333; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        
         .editor-section { padding: 15px; max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        
         label { display: block; font-size: 12px; color: #666; margin-top: 10px; font-weight: bold; }
         input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; font-size: 16px; } 
-        
         #logistics-box, #discount-box { background: #e3f2fd; padding: 10px; border: 1px solid #90caf9; border-radius: 4px; margin-top: 10px; display:none; }
         #discount-box { background: #fff3cd; border-color: #ffeeba; } 
         .flex-row { display: flex; gap: 10px; margin-bottom: 5px; }
-        
         #timeContainer input { margin-bottom: 5px; }
         .time-controls { display:inline-block; margin-left: 10px; }
         .btn-mini { padding: 2px 8px; font-size: 12px; border-radius: 4px; border:none; color:white; cursor:pointer; margin-left:2px; }
         .btn-mini-green { background: #28a745; }
         .btn-mini-red { background: #dc3545; }
-
         .row-inputs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; border-left: 3px solid #007bff; padding-left: 5px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
         .i-desc { width: 100%; } .i-remark { flex: 2; min-width: 120px; } .i-qty { flex: 1; min-width: 50px; } .i-price { flex: 1; min-width: 60px; }
         .row-menu { display: flex; gap: 5px; margin-bottom: 5px; margin-left: 20px; border-left: 3px solid #17a2b8; padding-left: 5px; }
         .row-menu input { background: #f9f9f9; border: 1px dashed #ccc; }
-
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
         .btn { padding: 12px; border: none; border-radius: 5px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-top: 10px; text-align: center;}
         .btn-primary { background: #007bff; } .btn-info { background: #17a2b8; } .btn-success { background: #28a745; } .btn-warning { background: #ffc107; color: black; } .btn-danger { background: #dc3545; } .btn-dark { background: #343a40; }
-        
         .settings-fab { position: fixed; bottom: 20px; left: 20px; background: #444; color: white; padding: 15px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: none; font-weight: bold; z-index: 999; width: auto; cursor: pointer; }
         .btn-back-floating { display: none; position: fixed; top: 20px; left: 20px; background: #dc3545; color: white; padding: 12px 25px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 2px solid white; font-weight: bold; z-index: 2000; cursor: pointer; font-size: 14px; }
-
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; overflow-y: auto; }
         .modal-content { background: white; width: 85%; max-width: 500px; margin: 5% auto; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
         
-        #invoice-paper { width: 210mm; min-height: 297mm; height: auto; background: white; margin: 20px auto; padding: 15mm; box-shadow: 0 0 15px rgba(0,0,0,0.2); box-sizing: border-box; position: relative; color: #000; display: none; }
+        /* --- PREVIEW AREA WRAPPER --- */
+        #preview-wrapper { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #333; z-index: 1500; overflow-y: auto; padding-bottom: 80px; }
+        
+        /* CONTROLS BAR (Fixed Bottom in Preview) */
+        #preview-controls {
+            display: none;
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: #fff; border-top: 1px solid #ccc;
+            padding: 15px; box-sizing: border-box;
+            display: flex; gap: 10px; z-index: 2000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        #invoice-paper { 
+            width: 210mm; 
+            min-height: 297mm; 
+            height: auto; 
+            background: white; 
+            margin: 0 auto; 
+            padding: 15mm; 
+            box-sizing: border-box; 
+            position: relative; 
+            color: #000; 
+            transform-origin: top center;
+        }
+
+        /* Mobile Fit-to-Screen Logic */
+        @media (max-width: 800px) {
+            #invoice-paper {
+                transform: scale(0.45); 
+                margin-top: -20px;
+                margin-left: -5px;
+                margin-bottom: -130%; 
+                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            }
+        }
+
         .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .logo-area { width: 120px; height: 120px; text-align: center; }
+        .logo-area { width: 160px; height: 160px; text-align: center; }
         .logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; border: 2px dotted #333; padding: 5px; }
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
-        .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; }
+        
+        /* BILL TO GRID LAYOUT */
+        .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; float:left; }
+        .bill-grid { display: grid; grid-template-columns: 110px 1fr; gap: 2px; }
+        .bill-label { font-weight: bold; }
+        .bill-val { word-wrap: break-word; }
+
         .meta-table { float: right; width: 40%; border-collapse: collapse; margin-bottom: 10px; }
         .meta-table td { border: 1px solid #ccc; padding: 5px; font-size: 12px; }
         .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
         .event-col { width: 32%; }
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-        .item-table th { background: #eee; border: 1px solid #333; padding: 8px; text-align: left; }
-        .item-table td { border: 1px solid #333; padding: 8px; vertical-align: top; }
+        
+        /* THICK BORDER TABLE */
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 2px solid #000; }
+        .item-table th { background: #eee; border-bottom: 2px solid #000; border-right: 1px solid #000; padding: 8px; text-align: left; }
+        .item-table th:last-child { border-right: none; }
+        .item-table td { border-right: 1px solid #000; padding: 8px; vertical-align: top; }
+        .item-table td:last-child { border-right: none; }
+        /* Zebra Striping */
+        .item-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        
         .totals-section { width: 100%; margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
         .words-container { width: 60%; font-size: 12px; font-style: italic; padding-right: 20px; display: flex; align-items: flex-start; }
         .lbl-ringgit { font-weight: bold; white-space: nowrap; margin-right: 5px; }
@@ -78,62 +116,46 @@
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
         .qr-section { width: 400px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
-        .qr-img { width: 360px; height: 360px; object-fit: contain; }
-        
+        .qr-img { width: 360px; height: 460px; object-fit: contain; }
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
         #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div class="app-bar">
-    <h2>Corals Invoice System</h2>
-</div>
+<div class="app-bar"><h2>Corals Invoice System</h2></div>
 <div id="db-status">Connecting...</div>
-
-<button id="backBtn" class="btn-back-floating" onclick="togglePreview()">← BACK TO EDIT</button>
 
 <div class="editor-section" id="editorUI">
     <div class="card">
         <h3>1. Import Previous Invoice (PDF)</h3>
         <input type="file" id="ocrInput" accept="application/pdf">
-        <div id="loader">Processing PDF...</div>
-        <button class="btn btn-dark" onclick="triggerFillData()">Load PDF Data</button>
+        <div id="loader">Reading PDF...</div>
+        <button class="btn btn-dark" onclick="triggerFillData()">Import & Fill</button>
     </div>
 
     <div class="card">
         <h3>2. Details</h3>
-        <label>Document Type</label>
-        <select id="docType" onchange="updateDocNoDisplay()"><option>INVOICE</option><option>QUOTATION</option></select>
+        <label>Document Type</label><select id="docType" onchange="updateDocNoDisplay()"><option>INVOICE</option><option>QUOTATION</option></select>
         <div class="row-inputs" style="border:none; padding:0;">
-            <label>Invoice/Quote No. (Editable)</label>
-            <input id="invNo" placeholder="Loading..." style="background:#fff; border:2px solid #f0ad4e; font-weight:bold;">
+            <label>Invoice/Quote No.</label><input id="invNo" placeholder="Loading..." style="background:#fff; border:2px solid #f0ad4e; font-weight:bold;">
             <input id="invDate" type="date">
         </div>
     </div>
 
     <div class="card">
         <h3>3. Client Info</h3>
-        <label>Customer Name</label>
-        <input id="clientName" placeholder="CLIENT NAME" oninput="this.value = this.value.toUpperCase()">
-        <label>Address</label>
-        <textarea id="clientAddress" rows="2" placeholder="Client Address"></textarea>
+        <label>Customer Name</label><input id="clientName" oninput="this.value = this.value.toUpperCase()">
+        <label>Address</label><textarea id="clientAddress" rows="2"></textarea>
         <div class="flex-row">
-            <div style="flex:1"><label>Contact No.</label><input id="clientContact" type="text" placeholder="Digits Only"></div>
-            <div style="flex:1"><label>Contact Person</label><input id="contactPerson" placeholder="Name"></div>
+            <div style="flex:1"><label>Contact No.</label><input id="clientContact"></div>
+            <div style="flex:1"><label>Contact Person</label><input id="contactPerson"></div>
         </div>
         <label>Date of Event</label><input id="eventDate" type="date">
-        <label>Time(s) of Event <div class="time-controls"><button class="btn-mini btn-mini-green" onclick="addTimeInput()">+</button><button class="btn-mini btn-mini-red" onclick="removeTimeInput()">-</button></div></label>
-        <div id="timeContainer"></div>
-        <label>Delivery Method</label>
-        <select id="deliveryMethod" onchange="toggleLogistics()">
-            <option value="Delivery">Delivery</option><option value="Self Pick Up">Self Pick Up</option><option value="Set Up">Set Up</option>
-        </select>
-        <div id="logistics-box">
-            <div class="flex-row"><div style="flex:1"><label id="logQtyLabel">Qty (Trips)</label><input id="logQty" type="number" value="1"></div><div style="flex:1"><label>Price (RM)</label><input id="logPrice" type="number" placeholder="0.00"></div></div>
-            <div id="setupFeeRow" class="flex-row" style="margin-top:10px; display:none;"><div style="flex:1"><label>Qty (Set Up)</label><input id="setupQty" type="number" value="1"></div><div style="flex:1"><label>Price (RM)</label><input id="setupPrice" type="number" placeholder="0.00"></div></div>
-        </div>
-        <label>Global Remark(s)</label><input id="invRemarks" placeholder="Any special notes...">
+        <label>Time(s)</label><div id="timeContainer"></div><div class="time-controls"><button class="btn-mini btn-mini-green" onclick="addTimeInput()">+</button><button class="btn-mini btn-mini-red" onclick="removeTimeInput()">-</button></div>
+        <label>Delivery</label><select id="deliveryMethod" onchange="toggleLogistics()"><option value="Delivery">Delivery</option><option value="Self Pick Up">Self Pick Up</option><option value="Set Up">Set Up</option></select>
+        <div id="logistics-box"><div class="flex-row"><div style="flex:1"><label id="logQtyLabel">Qty</label><input id="logQty" type="number" value="1"></div><div style="flex:1"><label>Price</label><input id="logPrice" type="number"></div></div><div id="setupFeeRow" class="flex-row" style="display:none;"><div style="flex:1"><label>Qty (Set Up)</label><input id="setupQty" type="number" value="1"></div><div style="flex:1"><label>Price</label><input id="setupPrice" type="number"></div></div></div>
+        <label>Remark(s)</label><input id="invRemarks">
     </div>
 
     <div class="card">
@@ -143,109 +165,68 @@
     </div>
 
     <div class="card">
-        <h3><input type="checkbox" id="chkDiscount" onchange="toggleDiscount()"> Add Discount / Waive</h3>
+        <h3><input type="checkbox" id="chkDiscount" onchange="toggleDiscount()"> Add Discount</h3>
         <div id="discount-box">
-            <label style="color:#856404;">1. Apply Discount</label>
-            <div class="flex-row">
-                <select id="discType" style="flex:1" onchange="updateDiscPlaceholder()"><option value="percent">Percent (%)</option><option value="rm">Fixed (RM)</option></select>
-                <input id="discVal" type="number" placeholder="%" style="flex:1">
-            </div>
-            <label>On Target:</label><select id="discTarget"><option value="food">Food Cost</option><option value="total">Grand Total</option><option value="transport">Transport Only</option></select>
-            <hr style="border:1px dashed #ccc; margin:10px 0;">
-            <label style="color:#856404;">2. Waive Fees</label><select id="waiveTarget"><option value="none">-- None --</option><option value="transport">Waive Transport</option><option value="setup">Waive Set Up</option></select>
+            <div class="flex-row"><select id="discType" style="flex:1" onchange="updateDiscPlaceholder()"><option value="percent">%</option><option value="rm">RM</option></select><input id="discVal" type="number" style="flex:1"></div>
+            <select id="discTarget"><option value="food">Food</option><option value="total">Total</option><option value="transport">Transport</option></select>
+            <select id="waiveTarget"><option value="none">Waive: None</option><option value="transport">Waive Transport</option><option value="setup">Waive Set Up</option></select>
         </div>
     </div>
 
     <div class="card">
         <h3>5. Actions</h3>
         <div class="btn-group">
-            <button class="btn btn-success" onclick="convertAndSend()">Convert PDF and Send</button>
-            <button class="btn btn-warning" style="background:#ffc107; color:black;" onclick="clearForm()">Clear Form</button>
-            <button class="btn btn-dark" onclick="exportExcel()">Export to Excel</button>
+            <button class="btn btn-success" onclick="enterPreviewMode()">Preview & Convert PDF</button>
+            <button class="btn btn-warning" onclick="clearForm()">Clear</button>
+            <button class="btn btn-dark" onclick="exportExcel()">Export Excel</button>
         </div>
-        <br><button class="btn btn-dark" style="background:#555;" onclick="togglePreview()">Toggle Preview</button>
     </div>
 </div>
 
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="text-align:center;">Company Settings</h3>
-        <label>Company Logo (Max 200KB)</label><input type="file" id="settingLogoInput" accept="image/*">
-        <label>Payment QR Code (Max 200KB)</label><input type="file" id="settingQRInput" accept="image/*">
-        <hr>
-        <label>Company Name</label><input id="setCompName">
-        <label>Registration No.</label><input id="setRegNo">
-        <label>Address</label><textarea id="setAddr" rows="3"></textarea>
-        <label>Contact Info</label><input id="setContact">
-        <hr>
-        <label>Bank Name</label><input id="setBank">
-        <label>Account No.</label><input id="setAcc">
-        <label>Payable To</label><input id="setPayable">
-        <hr>
-        <label>Default Notes</label><textarea id="setNotes" rows="3"></textarea>
-        <div class="modal-buttons"><button class="btn btn-warning" onclick="closeSettings()">Back</button><button class="btn btn-success" onclick="saveSettings()">Submit & Sync</button></div>
+        <h3>Settings</h3>
+        <label>Logo</label><input type="file" id="settingLogoInput" accept="image/*">
+        <label>QR</label><input type="file" id="settingQRInput" accept="image/*">
+        <hr><label>Name</label><input id="setCompName"><label>Reg No</label><input id="setRegNo"><label>Addr</label><textarea id="setAddr" rows="3"></textarea><label>Contact</label><input id="setContact"><hr><label>Bank</label><input id="setBank"><label>Acc</label><input id="setAcc"><label>Payable</label><input id="setPayable"><hr><label>Notes</label><textarea id="setNotes" rows="3"></textarea>
+        <div class="modal-buttons"><button class="btn btn-warning" onclick="closeSettings()">Back</button><button class="btn btn-success" onclick="saveSettings()">Save</button></div>
     </div>
 </div>
-<button class="settings-fab" onclick="openSettings()">⚙ Settings</button>
+<button class="settings-fab" onclick="openSettings()">⚙</button>
 
-<div id="invoice-paper">
-    <div class="header-flex">
-        <div class="logo-area"><img id="printLogo" class="logo-img" alt="Logo"></div>
-        <div class="company-details">
-            <h2 style="margin:0;" id="dispCompName">...</h2>
-            <span id="dispRegHeader" class="reg-header">...</span>
-            <p style="margin:5px 0;"><span id="dispAddr">...</span><br><span id="dispContactInfo">...</span></p>
-        </div>
-    </div>
-    <hr style="border: 1px solid #333;">
-    <div style="overflow: hidden; margin-top: 20px;">
-        <div style="overflow:hidden;">
-            <div class="client-box" style="float:left;">
-                <strong>Bill To:</strong><br><span id="dispClientName">Client</span><br><span id="dispClientAddr">...</span><br>
-                <span style="font-size:12px; color:#444;">Contact: <span id="dispContact"></span></span>
+<div id="preview-wrapper">
+    <div id="invoice-paper">
+        <div class="header-flex"><div class="logo-area"><img id="printLogo" class="logo-img"></div><div class="company-details"><h2 id="dispCompName"></h2><span id="dispRegHeader" class="reg-header"></span><p><span id="dispAddr"></span><br><span id="dispContactInfo"></span></p></div></div><hr style="border:1px solid #333;">
+        
+        <div style="overflow: hidden; margin-top: 20px;">
+            <div class="client-box">
+                <div style="margin-bottom:5px;"><strong>Bill To:</strong></div>
+                <div class="bill-grid">
+                    <div class="bill-label">Customer:</div><div class="bill-val" id="dispClientName"></div>
+                    <div class="bill-label">Address:</div><div class="bill-val" id="dispClientAddr"></div>
+                    <div class="bill-label">Contact Person:</div><div class="bill-val" id="dispContact"></div>
+                </div>
             </div>
-            <table class="meta-table">
-                <tr><td style="background:#eee; font-weight:bold;" id="lblDocNo">INVOICE NO.</td><td id="dispInvNo">...</td></tr>
-                <tr><td style="background:#eee; font-weight:bold;">DATE</td><td id="dispDate">...</td></tr>
-            </table>
+            <table class="meta-table"><tr><td style="background:#eee;font-weight:bold;" id="lblDocNo">NO.</td><td id="dispInvNo"></td></tr><tr><td style="background:#eee;font-weight:bold;">DATE</td><td id="dispDate"></td></tr></table>
         </div>
-        <div class="event-info-box">
-            <div class="event-col"><strong>Date of Event:</strong><br><span id="dispEventDate">-</span></div>
-            <div class="event-col"><strong>Time:</strong><br><span id="dispEventTime">-</span></div>
-            <div class="event-col"><strong>Method:</strong><br><span id="dispMethod">-</span></div>
-        </div>
+
+        <div class="event-info-box"><div class="event-col"><strong>Date:</strong><br><span id="dispEventDate">-</span></div><div class="event-col"><strong>Time:</strong><br><span id="dispEventTime">-</span></div><div class="event-col"><strong>Method:</strong><br><span id="dispMethod">-</span></div></div>
+        <table class="item-table"><thead><tr><th width="5%">No</th><th width="45%">Desc</th><th width="15%">Qty</th><th width="15%">Price</th><th width="20%">Total</th></tr></thead><tbody id="printItemsBody"></tbody></table>
+        <div style="margin-top:10px; font-size:12px;"><strong>Remarks:</strong> <span id="dispRemarks"></span></div>
+        <div class="totals-section"><div class="words-container"><span class="lbl-ringgit">Ringgit M'sia</span><span class="val-words" id="dispWords"></span></div><div class="numbers-container"><div class="totals-row"><span>Sub:</span> <span>RM <span id="dispSub"></span></span></div><div class="totals-row" id="rowDiscount" style="display:none;color:red;"><span>Disc:</span> <span>- RM <span id="dispDisc"></span></span></div><div class="totals-row bold" style="border-top:2px solid #333;"><span>Total:</span> <span>RM <span id="dispTotal"></span></span></div></div></div>
+        <div class="terms-section"><div class="bank-details"><p><strong>NOTES:</strong><br><span id="dispNotes"></span></p><p style="border:1px solid #ccc; padding:10px;"><strong>BANK DETAILS:</strong><br>Bank: <span id="dispBank"></span><br>Acc: <span id="dispAcc"></span><br>Payable To: <span id="dispPayable"></span><br><small id="dispRegFooter"></small></p><div class="qr-section"><div style="background:#005EB8;color:white;font-weight:bold;">WE PREFER</div><img id="printQR" class="qr-img"><div>Scan to Pay</div></div></div></div>
     </div>
-    <table class="item-table">
-        <thead><tr><th width="5%">No</th><th width="45%">Description</th><th width="15%">Qty</th><th width="15%">Unit Price (RM)</th><th width="20%">Amount (RM)</th></tr></thead>
-        <tbody id="printItemsBody"></tbody>
-    </table>
-    <div style="margin-top:10px; font-size:12px;"><strong>Global Remark(s):</strong> <span id="dispRemarks"></span></div>
-    <div class="totals-section">
-        <div class="words-container"><span class="lbl-ringgit">Ringgit M'sia</span><span class="val-words" id="dispWords">Zero ONLY</span></div>
-        <div class="numbers-container">
-            <div class="totals-row"><span>Subtotal:</span> <span>RM <span id="dispSub">0.00</span></span></div>
-            <div class="totals-row" id="rowDiscount" style="display:none; color:red;"><span>Discount / Waive:</span> <span>- RM <span id="dispDisc">0.00</span></span></div>
-            <div class="totals-row bold" style="border-top:2px solid #333; padding-top:5px;"><span>Total:</span> <span>RM <span id="dispTotal">0.00</span></span></div>
-        </div>
-    </div>
-    <div class="terms-section">
-        <div class="bank-details">
-            <p><strong>NOTES:</strong><br><span id="dispNotes">...</span></p>
-            <p style="border:1px solid #ccc; padding:10px;">
-                <strong>BANK DETAILS:</strong><br>Bank: <span id="dispBank">...</span><br>Acc: <span id="dispAcc">...</span><br>Payable To: <span id="dispPayable">...</span><br>
-                <small id="dispRegFooter">...</small>
-            </p>
-            <div class="qr-section">
-                <div style="background:#005EB8; color:white; font-weight:bold; margin-bottom:5px;">WE PREFER</div>
-                <img id="printQR" class="qr-img" src="" alt="TnG QR">
-                <div style="font-size:10px; margin-top:5px;">Scan to Pay</div>
-            </div>
-        </div>
+    <div id="preview-controls">
+        <button class="btn btn-warning" onclick="exitPreviewMode()">Back to Edit</button>
+        <button class="btn btn-success" onclick="printPDF()">Convert PDF</button>
     </div>
 </div>
 
 <script>
-    // --- FIREBASE CONFIG (CORRECT) ---
+    // --- INIT ---
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    // ⬇️ PASTE FIREBASE KEYS HERE ⬇️
     const firebaseConfig = {
       apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
       authDomain: "coralsinvoicedb.firebaseapp.com",
@@ -256,224 +237,290 @@
       appId: "1:993211696860:web:2e971078ececdff03ed619"
     };
 
-    // --- VARIABLES ---
     let db = null;
     let currentSettings = { name: "CORALS CAFE", reg: "", addr: "", contact: "", bank: "", acc: "", payable: "", notes: "", logo: "", qr: "" };
     let liveInvNo = 1771, liveQtNo = 238;
 
-    // --- INIT ---
-    try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error("Firebase Error", e); }
+    try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error(e); }
 
-    window.onload = function() {
-        if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        addItemRow(); resetDates(); addTimeInput(); toggleLogistics(); initDataLoad();
-    };
-
-    function initDataLoad() {
-        const status = document.getElementById('db-status');
-        if (db) {
-            status.innerText = "DB: Connected"; status.style.background = "#28a745";
-            db.ref('settings').on('value', (snap) => { const v = snap.val(); if(v) { currentSettings = v; applySettingsToUI(v); } });
-            db.ref('counters').on('value', (snap) => { 
-                const v = snap.val(); 
-                if(v) { 
-                    liveInvNo = v.invoice || 1771; 
-                    liveQtNo = v.quotation || 238; 
-                    // Update display only if field is empty or matches system count
-                    const cur = document.getElementById('invNo').value;
-                    if(!cur || cur == (liveInvNo-1) || cur == (liveQtNo-1)) updateDocNoDisplay();
-                }
-                else { db.ref('counters').set({ invoice: 1771, quotation: 238 }); }
-            });
-        } else {
-            status.innerText = "Mode: Local"; status.style.background = "#dc3545";
-            const s = localStorage.getItem('compSettings'); if(s) applySettingsToUI(JSON.parse(s));
-            liveInvNo = parseInt(localStorage.getItem('lastInvNo')) || 1771;
-            liveQtNo = parseInt(localStorage.getItem('lastQtNo')) || 238;
-            updateDocNoDisplay();
-        }
-    }
-
-    // --- HELPER FUNCTIONS MOVED UP ---
+    // --- HELPER FUNCTIONS ---
     function getItemsFromDOM() {
         const container = document.getElementById('items-container');
         const data = [];
         for (let i = 0; i < container.children.length; i++) {
-            const row = container.children[i]; const type = row.getAttribute('data-type');
+            const row = container.children[i]; 
+            const type = row.getAttribute('data-type');
             if(type === 'item') {
-                data.push({ type: 'item', desc: row.querySelector('.i-desc').value, remark: row.querySelector('.i-remark').value, 
-                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, price: parseFloat(row.querySelector('.i-price').value) || 0, isLogistics: false });
-            } else if (type === 'menu') { data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); }
+                data.push({ 
+                    type: 'item', 
+                    desc: row.querySelector('.i-desc').value, 
+                    remark: row.querySelector('.i-remark').value, 
+                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, 
+                    price: parseFloat(row.querySelector('.i-price').value) || 0, 
+                    isLogistics: false,
+                    menus: [] 
+                });
+            } else if (type === 'menu') { 
+                if(data.length > 0) {
+                    data[data.length-1].menus.push(row.querySelector('.i-desc').value);
+                }
+            }
         }
         const method = document.getElementById('deliveryMethod').value;
-        const logQty = parseFloat(document.getElementById('logQty').value) || 0; const logPrice = parseFloat(document.getElementById('logPrice').value) || 0;
-        const setupQty = parseFloat(document.getElementById('setupQty').value) || 0; const setupPrice = parseFloat(document.getElementById('setupPrice').value) || 0;
-        
-        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' }); } 
+        const lQ = parseFloat(document.getElementById('logQty').value) || 0; const lP = parseFloat(document.getElementById('logPrice').value) || 0;
+        const sQ = parseFloat(document.getElementById('setupQty').value) || 0; const sP = parseFloat(document.getElementById('setupPrice').value) || 0;
+        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport', menus: [] }); } 
         else if (method === 'Set Up') {
-            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' });
-            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: setupQty, price: setupPrice, isLogistics: true, subType: 'setup' });
-        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); }
+            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport', menus: [] });
+            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: sQ, price: sP, isLogistics: true, subType: 'setup', menus: [] });
+        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true, menus: [] }); }
         return data;
     }
-
-    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
+    
+    function applySettingsToUI(s) {
+        document.getElementById('dispCompName').innerText = s.name; document.getElementById('dispRegHeader').innerText = s.reg;
+        document.getElementById('dispAddr').innerHTML = s.addr; document.getElementById('dispContactInfo').innerText = s.contact;
+        document.getElementById('dispBank').innerText = s.bank; document.getElementById('dispAcc').innerText = s.acc;
+        document.getElementById('dispPayable').innerText = s.payable; document.getElementById('dispRegFooter').innerText = s.reg;
+        document.getElementById('dispNotes').innerHTML = s.notes;
+        if(s.logo) document.getElementById('printLogo').src = s.logo; if(s.qr) document.getElementById('printQR').src = s.qr;
+    }
+    function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
+    function addTimeInput(val="") { const c=document.getElementById('timeContainer'); const i=document.createElement('input'); i.type='time'; i.className='evt-time-input'; i.value=val; i.style.width="100%"; c.appendChild(i); }
+    function removeTimeInput() { const c=document.getElementById('timeContainer'); if(c.children.length>0) c.removeChild(c.lastChild); }
+    function addItemRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark" class="i-remark"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function addMenuRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail" class="i-desc"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
+    function toggleLogistics() { const m=document.getElementById('deliveryMethod').value; document.getElementById('logistics-box').style.display = (m==='Self Pick Up')?'none':'block'; document.getElementById('setupFeeRow').style.display = (m==='Set Up')?'flex':'none'; document.getElementById('logQtyLabel').innerText=(m==='Delivery')?'Qty (Trips)':'Qty (Trans)'; }
+    function toggleDiscount() { document.getElementById('discount-box').style.display=document.getElementById('chkDiscount').checked?'block':'none'; }
+    function updateDiscPlaceholder() { document.getElementById('discVal').placeholder=(document.getElementById('discType').value==='percent')?'%':'RM'; }
     function formatTime12hr(t) { if(!t) return ""; let [h,m] = t.split(":"); let ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; }
+    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
     function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
     function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
     function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
 
-    // --- CORE LOGIC ---
+    // --- MAIN INIT ---
+    window.onload = function() {
+        if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+        addItemRow(); resetDates(); addTimeInput(); toggleLogistics(); initDataLoad();
+    };
+
+    function initDataLoad() {
+        const st = document.getElementById('db-status');
+        if(db) {
+            st.innerText="DB: Connected"; st.style.background="#28a745";
+            db.ref('settings').on('value', s => { if(s.val()) { currentSettings=s.val(); applySettingsToUI(s.val()); }});
+            db.ref('counters').on('value', s => { if(s.val()) { liveInvNo=s.val().invoice||1771; liveQtNo=s.val().quotation||238; updateDocNoDisplay(); } else db.ref('counters').set({invoice:1771,quotation:238}); });
+        } else {
+            st.innerText="Mode: Local"; st.style.background="#dc3545";
+            const s=localStorage.getItem('compSettings'); if(s) applySettingsToUI(JSON.parse(s));
+            liveInvNo=parseInt(localStorage.getItem('lastInvNo'))||1771; liveQtNo=parseInt(localStorage.getItem('lastQtNo'))||238; updateDocNoDisplay();
+        }
+    }
+
+    // --- PDF IMPORT ---
     function triggerFillData() {
-        const input = document.getElementById('ocrInput');
-        if (!input.files || !input.files[0]) { alert("Please select a PDF file."); return; }
-        const file = input.files[0];
-        if (file.type !== 'application/pdf') { alert("Only PDF files allowed."); return; }
+        const f = document.getElementById('ocrInput').files[0];
+        if(!f) { alert("Select PDF"); return; }
+        document.getElementById('loader').style.display='block';
         
-        document.getElementById('loader').style.display = 'block';
-        const reader = new FileReader();
-        reader.onload = function() {
-            const typedarray = new Uint8Array(this.result);
-            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+        const fname = f.name.replace('.pdf','');
+        if(fname.includes(" - ")) {
+            const parts = fname.split(" - ");
+            const no = parts[0].match(/(\d+)/);
+            if(no) document.getElementById('invNo').value = no[0];
+            if(parts[1]) document.getElementById('clientName').value = parts[1].trim().toUpperCase();
+        }
+
+        const r = new FileReader();
+        r.onload = function() {
+            pdfjsLib.getDocument(new Uint8Array(this.result)).promise.then(pdf => {
                 pdf.getPage(1).then(page => {
-                    page.getTextContent().then(textContent => {
-                        // Primary Strategy: Text Layer
-                        let rawText = textContent.items.map(item => item.str).join(" ");
-                        
-                        // Secondary Strategy: Visual OCR (Backup)
-                        const scale = 2.5;
-                        const viewport = page.getViewport({ scale: scale });
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-                        
-                        page.render({ canvasContext: context, viewport: viewport }).promise.then(() => {
-                            canvas.toBlob(blob => {
-                                Tesseract.recognize(blob, 'eng').then(out => {
-                                    const combinedText = rawText + "\n" + out.data.text;
-                                    parseExtractedData(combinedText);
-                                    document.getElementById('loader').style.display = 'none';
-                                });
-                            });
+                    page.getTextContent().then(content => {
+                        const items = content.items.map(i => ({ str: i.str, y: i.transform[5], x: i.transform[4] }));
+                        items.sort((a,b) => {
+                           const yDiff = b.y - a.y;
+                           if (Math.abs(yDiff) < 6) return a.x - b.x; 
+                           return yDiff;
                         });
+                        let text = "";
+                        let lastY = -1;
+                        items.forEach(i => {
+                            if (lastY !== -1 && Math.abs(i.y - lastY) > 6) text += "\n";
+                            else text += " ";
+                            text += i.str;
+                            lastY = i.y;
+                        });
+                        parsePDF(text);
+                        document.getElementById('loader').style.display='none';
                     });
                 });
             });
         };
-        reader.readAsArrayBuffer(file);
+        r.readAsArrayBuffer(f);
     }
 
-    function parseExtractedData(text) {
-        alert("PDF Data Extracted!");
+    function parsePDF(txt) {
+        alert("Extracted!");
         
-        // 1. Header
-        const invMatch = text.match(/(?:NO|INV)[.:\s]*([A-Z0-9-]+)/i);
-        if(invMatch) document.getElementById('invNo').value = invMatch[1].trim();
-
-        const clientMatch = text.match(/(?:Bill To|Client)[:\s]+(.*?)(?:\n|Address|Date|$)/i);
-        if(clientMatch && clientMatch[1].length > 3) document.getElementById('clientName').value = clientMatch[1].trim().toUpperCase();
-
-        const dateMatch = text.match(/Date\s*(?:of)?\s*(?:the)?\s*[:.]?\s*(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}|\d{2,4}[-/]\d{1,2}[-/]\d{1,4})/i);
-        if(dateMatch) {
-            let clean = dateMatch[1].replace(/(\d+)(st|nd|rd|th)/, '$1');
-            let d = Date.parse(clean);
-            if(!isNaN(d)) {
-                document.getElementById('invDate').valueAsDate = new Date(d);
-                document.getElementById('eventDate').valueAsDate = new Date(d);
+        const inv = txt.match(/(?:NO|INV)[.:\s]*([0-9]+)/i); 
+        if(inv && (!document.getElementById('invNo').value || document.getElementById('invNo').value == "Loading...")) document.getElementById('invNo').value=inv[1];
+        
+        const billIdx = txt.indexOf("Bill To:");
+        if(billIdx > -1) {
+            const sub = txt.substring(billIdx);
+            const lines = sub.split('\n');
+            let nameFound = "";
+            let addrFound = "";
+            for(let i=0; i<lines.length; i++) {
+                let line = lines[i].trim();
+                if(line.includes("Bill To:")) {
+                    let sameLine = line.replace("Bill To:","").trim();
+                    if(sameLine) nameFound = sameLine;
+                    continue; 
+                }
+                if(line.includes("Contact:")) break; 
+                if(!nameFound) { nameFound = line; continue; }
+                if(nameFound && !line.includes("Date") && !line.includes("NO.")) addrFound += line + "\n";
             }
+            if(nameFound && !document.getElementById('clientName').value) document.getElementById('clientName').value = nameFound.toUpperCase();
+            document.getElementById('clientAddress').value = addrFound.trim();
+        }
+        
+        const con = txt.match(/Contact(?:\s*Person)?[:.\s]*([0-9-]+)\s*(?:\((.*?)\))?/i); 
+        if(con) {
+            document.getElementById('clientContact').value=con[1];
+            if(con[2]) document.getElementById('contactPerson').value=con[2];
         }
 
-        // 2. Smart Logistics
-        if (text.includes("DELIVERY")) { document.getElementById('deliveryMethod').value = "Delivery"; } 
-        else if (text.includes("SET UP") || text.includes("TRANSPORT STANDARD")) { document.getElementById('deliveryMethod').value = "Set Up"; } 
-        else { document.getElementById('deliveryMethod').value = "Self Pick Up"; }
+        const dMatch = txt.match(/Date[:\s]*(\d{1,2}[/-]\w+[/-]\d{4}|\d{2,4}[/-]\d{1,2}[/-]\d{1,4})/i);
+        if(dMatch) { 
+            let d = Date.parse(dMatch[1]); if(!isNaN(d)) { document.getElementById('invDate').valueAsDate=new Date(d); document.getElementById('eventDate').valueAsDate=new Date(d); }
+        }
+        
+        document.getElementById('timeContainer').innerHTML='';
+        const tRegex = /(\d{1,2}:\d{2}\s?[AP]M)/gi;
+        const tMatch = txt.match(tRegex);
+        if(tMatch) {
+            tMatch.forEach(t => {
+                let [time,mod] = t.split(/\s?(?=[AP]M)/i); let [h,m]=time.split(':'); h=parseInt(h);
+                if(mod.toUpperCase()=='PM' && h<12) h+=12; if(mod.toUpperCase()=='AM' && h==12) h=0;
+                addTimeInput(`${h.toString().padStart(2,'0')}:${m}`);
+            });
+        } else { addTimeInput(); }
+
+        if(txt.includes("DELIVERY")) document.getElementById('deliveryMethod').value="Delivery";
+        else if(txt.includes("SET UP")) document.getElementById('deliveryMethod').value="Set Up";
+        else document.getElementById('deliveryMethod').value="Self Pick Up";
         toggleLogistics();
 
-        // 3. Items (Robust Parsing)
-        document.getElementById('items-container').innerHTML = '';
-        const lines = text.split('\n');
-        let itemsFound = false;
-
+        document.getElementById('items-container').innerHTML='';
+        const lines = txt.split('\n');
+        let hasItems = false;
+        
         lines.forEach(line => {
-            // Regex to find lines like: "1  LUNCH... 20  RM 40  RM 800"
-            // Allows variations in spacing and RM presence
-            const itemRegex = /^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:RM)?\s?([\d.,]+)\s+(?:RM)?\s?([\d.,]+)/i;
-            const match = line.match(itemRegex);
-            
-            if (match) {
-                const desc = match[2].trim();
-                const qty = match[3];
-                const price = match[4].replace(/,/g, '');
-                
-                // Avoid duplicating logistics which are handled by the dropdown
-                if (!desc.toUpperCase().includes("DELIVERY") && !desc.toUpperCase().includes("TRANSPORT") && !desc.toUpperCase().includes("SET UP")) {
-                    itemsFound = true;
+            const rowM = line.match(/(\d+)\s+(?:RM)?\s?([\d,.]+)\s+(?:RM)?\s?([\d,.]+)\s*$/i);
+            if(rowM) {
+                const qty = rowM[1];
+                const price = rowM[2].replace(/,/g,'');
+                let desc = line.substring(0, line.lastIndexOf(qty)).trim();
+                desc = desc.replace(/^\d+\s+/, '');
+
+                if(!desc.includes("DELIVERY") && !desc.includes("TRANSPORT") && !desc.includes("SET UP")) {
+                    hasItems = true;
                     addItemRow();
                     const rows = document.querySelectorAll('.row-inputs');
-                    const lastRow = rows[rows.length - 1];
-                    lastRow.querySelector('.i-desc').value = desc;
-                    lastRow.querySelector('.i-qty').value = qty;
-                    lastRow.querySelector('.i-price').value = price;
+                    const last = rows[rows.length-1];
+                    last.querySelector('.i-desc').value = desc;
+                    last.querySelector('.i-qty').value = qty;
+                    last.querySelector('.i-price').value = price;
                 } else {
-                    // Fill logistics prices if found in table
                     if(desc.includes("TRANSPORT") || desc.includes("DELIVERY")) document.getElementById('logPrice').value = price;
                     if(desc.includes("SET UP")) document.getElementById('setupPrice').value = price;
                 }
+            } 
+            else if(line.trim().startsWith('-') && hasItems) {
+                addMenuRow();
+                const m = document.querySelectorAll('.row-menu input');
+                m[m.length-1].value = line.replace(/^-/,'').trim();
             }
         });
-        
-        if(!itemsFound) addItemRow(); // Ensure at least one row
+        if(!hasItems) addItemRow();
     }
 
-    // --- UI & LOGIC FUNCTIONS ---
+    // --- STANDARD UI ---
     function updateDocNoDisplay() {
-        const type = document.getElementById('docType').value;
-        const current = document.getElementById('invNo').value;
-        if (!current || current == (liveInvNo-1) || current == (liveQtNo-1)) {
-            document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
-        }
+        const t = document.getElementById('docType').value;
+        const c = document.getElementById('invNo').value;
+        if(!c || c==(liveInvNo-1) || c==(liveQtNo-1) || c=="Loading...") document.getElementById('invNo').value = (t==='INVOICE')?liveInvNo:liveQtNo;
+    }
+    
+    // --- PREVIEW MODE TOGGLES ---
+    function enterPreviewMode() {
+        updatePreviewData();
+        const wrapper = document.getElementById('preview-wrapper');
+        const ui = document.getElementById('editorUI');
+        const ctrls = document.getElementById('preview-controls');
+        
+        wrapper.style.display = 'block';
+        ctrls.style.display = 'flex'; // Show controls
+        ui.style.display = 'none';
+        window.scrollTo(0,0);
+        
+        // Reset scale for display
+        document.getElementById('invoice-paper').style.transform = '';
+        document.getElementById('invoice-paper').style.marginBottom = '';
     }
 
-    function convertAndSend() {
-        updatePreviewData();
-        const paper = document.getElementById('invoice-paper');
+    function exitPreviewMode() {
+        const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
-        const backBtn = document.getElementById('backBtn');
-        const filename = getFilename();
-
-        paper.style.display = 'block'; ui.style.display = 'none'; backBtn.style.display = 'none';
-
-        html2canvas(paper, { scale: 2 }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 210; const imgHeight = canvas.height * imgWidth / canvas.width;
+        const ctrls = document.getElementById('preview-controls');
+        
+        wrapper.style.display = 'none';
+        ctrls.style.display = 'none';
+        ui.style.display = 'block';
+    }
+    
+    // --- CONVERT ONLY ---
+    function printPDF() {
+        const paper = document.getElementById('invoice-paper');
+        const ctrls = document.getElementById('preview-controls');
+        const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
+        
+        // Hide controls for capture
+        ctrls.style.display = 'none';
+        
+        html2canvas(paper, {scale:2, useCORS: true}).then(c => {
+            const img = c.toDataURL('image/png');
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
-            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            doc.save(filename);
-
-            // Increment logic: Only if using live number
-            const currentNo = document.getElementById('invNo').value;
-            const type = document.getElementById('docType').value;
+            const doc = new jsPDF('p', 'mm', [210, c.height*210/c.width]);
+            doc.addImage(img, 'PNG', 0, 0, 210, c.height*210/c.width);
+            doc.save(f);
+            
+            // Increment
+            const cur = document.getElementById('invNo').value;
+            const typ = document.getElementById('docType').value;
             let isNew = false;
-            if(type === 'INVOICE' && currentNo == liveInvNo) isNew = true;
-            if(type === 'QUOTATION' && currentNo == liveQtNo) isNew = true;
-
-            if(isNew && db) {
-                const ref = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
-                ref.transaction((val) => (val || 0) + 1);
-            } else if (isNew) {
-                if(type === 'INVOICE') { liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } 
-                else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); }
-                updateDocNoDisplay();
-            }
-
-            paper.style.display = 'none'; ui.style.display = 'block';
-            const text = `Hi, please find the attached ${filename}.`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            if(typ==='INVOICE' && cur==liveInvNo) isNew=true;
+            if(typ==='QUOTATION' && cur==liveQtNo) isNew=true;
+            if(isNew && db) { db.ref('counters/'+(typ==='INVOICE'?'invoice':'quotation')).transaction(v => (v||0)+1); }
+            else if(isNew) { if(typ==='INVOICE'){ liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); } updateDocNoDisplay(); }
+            
+            // Restore controls
+            ctrls.style.display = 'flex';
+        }).catch(err => {
+            alert("PDF Error: " + err.message);
+            ctrls.style.display = 'flex';
         });
     }
+
+    function exportExcel() { const d = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ]; const i = getItemsFromDOM(); i.forEach(x => { if(x.type === 'item') d.push([x.desc, x.qty, x.price, x.qty*x.price]); else d.push([" - " + x.desc]); }); const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(d); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx"); }
+    
+    function togglePreview() { enterPreviewMode(); } // Map old button to new function
+    
+    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
 
     function updatePreviewData() {
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
@@ -481,9 +528,11 @@
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
         document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
         
-        const cNum = document.getElementById('clientContact').value;
+        const cNum = document.getElementById('clientContact').value; 
         const cName = document.getElementById('contactPerson').value;
-        document.getElementById('dispContact').innerText = cName ? `${cNum} (${cName})` : cNum;
+        let contactDisplay = cNum;
+        if(cName) contactDisplay += ` (${cName})`;
+        document.getElementById('dispContact').innerText = contactDisplay;
 
         document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
@@ -500,13 +549,24 @@
                 count++; let total = item.qty * item.price;
                 if(item.isLogistics) transportCost += total; else foodCost += total;
                 grandTotal += total;
+                
                 let descHtml = item.desc;
-                if(item.remark) descHtml += `<br><small style="color:#444; font-size:11px;">${item.remark.replace(/\n/g,'<br>')}</small>`;
                 let pDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + item.price.toFixed(2);
                 let tDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + total.toFixed(2);
                 let qDisp = (item.desc === 'SELF PICK UP') ? '-' : item.qty;
+                
                 tbody.innerHTML += `<tr><td style="font-weight:bold;">${count}</td><td style="font-weight:bold;">${descHtml}</td><td>${qDisp}</td><td>${pDisp}</td><td>${tDisp}</td></tr>`;
-            } else { tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`; }
+                
+                if(item.menus && item.menus.length > 0) {
+                    item.menus.forEach(m => {
+                        tbody.innerHTML += `<tr><td></td><td style="padding-left:20px;">- ${m}</td><td></td><td></td><td></td></tr>`;
+                    });
+                }
+                if(item.remark) {
+                    let prefix = item.isLogistics ? "" : "Remark:- ";
+                    tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; color:#444; font-size:11px;">${prefix}${item.remark.replace(/\n/g,'<br>')}</td><td></td><td></td><td></td></tr>`;
+                }
+            } 
         });
 
         let discountAmount = 0;
@@ -518,90 +578,17 @@
             const waive = document.getElementById('waiveTarget').value;
             if(waive !== 'none') { items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); }); }
         }
-        let final = Math.max(0, grandTotal - discountAmount);
+        let finalTotal = Math.max(0, grandTotal - discountAmount);
         document.getElementById('dispSub').innerText = grandTotal.toFixed(2);
-        const rowD = document.getElementById('rowDiscount');
-        if(discountAmount > 0) { rowD.style.display = 'flex'; document.getElementById('dispDisc').innerText = discountAmount.toFixed(2); } else { rowD.style.display = 'none'; }
-        document.getElementById('dispTotal').innerText = final.toFixed(2);
-        document.getElementById('dispWords').innerText = getMoneyText(final.toFixed(2));
+        const rowDisc = document.getElementById('rowDiscount');
+        if(discountAmount > 0) { rowDisc.style.display = 'flex'; document.getElementById('dispDisc').innerText = discountAmount.toFixed(2); } else { rowDisc.style.display = 'none'; }
+        document.getElementById('dispTotal').innerText = finalTotal.toFixed(2);
+        document.getElementById('dispWords').innerText = getMoneyText(finalTotal.toFixed(2));
     }
+    function openSettings() { document.getElementById('settingsModal').style.display='block'; document.getElementById('setCompName').value=currentSettings.name; document.getElementById('setRegNo').value=currentSettings.reg; document.getElementById('setAddr').value=currentSettings.addr.replace(/<br>/g,'\n'); document.getElementById('setContact').value=currentSettings.contact; document.getElementById('setBank').value=currentSettings.bank; document.getElementById('setAcc').value=currentSettings.acc; document.getElementById('setPayable').value=currentSettings.payable; document.getElementById('setNotes').value=currentSettings.notes.replace(/<br>/g,'\n'); }
+    function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
+    async function saveSettings() { const rf=f=>new Promise(r=>{if(!f)return r(null);const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);}); const l=await rf(document.getElementById('settingLogoInput').files[0]); const q=await rf(document.getElementById('settingQRInput').files[0]); const s={name:document.getElementById('setCompName').value, reg:document.getElementById('setRegNo').value, addr:document.getElementById('setAddr').value.replace(/\n/g,'<br>'), contact:document.getElementById('setContact').value, bank:document.getElementById('setBank').value, acc:document.getElementById('setAcc').value, payable:document.getElementById('setPayable').value, notes:document.getElementById('setNotes').value.replace(/\n/g,'<br>'), logo:l||currentSettings.logo||"", qr:q||currentSettings.qr||""}; if(db) db.ref('settings').set(s); else { localStorage.setItem('compSettings',JSON.stringify(s)); currentSettings=s; applySettingsToUI(s); } alert("Saved!"); closeSettings(); }
 
-    function togglePreview() {
-        updatePreviewData();
-        const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn');
-        if(p.style.display === 'none') { p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block'; window.scrollTo(0,0); } 
-        else { p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none'; }
-    }
-
-    function exportExcel() {
-        const wb = XLSX.utils.book_new();
-        const data = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ];
-        const items = getItemsFromDOM();
-        items.forEach(i => { if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]); else data.push([" - " + i.desc]); });
-        const ws = XLSX.utils.aoa_to_sheet(data); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx");
-    }
-
-    function openSettings() { 
-        document.getElementById('settingsModal').style.display = 'block';
-        document.getElementById('setCompName').value = currentSettings.name;
-        document.getElementById('setRegNo').value = currentSettings.reg;
-        document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n');
-        document.getElementById('setContact').value = currentSettings.contact;
-        document.getElementById('setBank').value = currentSettings.bank;
-        document.getElementById('setAcc').value = currentSettings.acc;
-        document.getElementById('setPayable').value = currentSettings.payable;
-        document.getElementById('setNotes').value = currentSettings.notes.replace(/<br>/g, '\n');
-    }
-    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-
-    async function saveSettings() {
-        const readFile = (file) => new Promise((resolve) => {
-            if (!file) return resolve(null);
-            const r = new FileReader();
-            r.onload = (e) => resolve(e.target.result);
-            r.readAsDataURL(file);
-        });
-        const lIn = document.getElementById('settingLogoInput').files[0]; 
-        const qIn = document.getElementById('settingQRInput').files[0];
-        const newLogo = await readFile(lIn);
-        const newQR = await readFile(qIn);
-        const s = {
-            name: document.getElementById('setCompName').value, reg: document.getElementById('setRegNo').value,
-            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'), contact: document.getElementById('setContact').value,
-            bank: document.getElementById('setBank').value, acc: document.getElementById('setAcc').value, payable: document.getElementById('setPayable').value,
-            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
-            logo: newLogo || currentSettings.logo || "", qr: newQR || currentSettings.qr || ""
-        };
-        if(db) { db.ref('settings').set(s); } else { localStorage.setItem('compSettings', JSON.stringify(s)); currentSettings = s; applySettingsToUI(s); }
-        alert("Settings Saved!"); closeSettings();
-    }
-
-    function applySettingsToUI(s) {
-        document.getElementById('dispCompName').innerText = s.name; document.getElementById('dispRegHeader').innerText = s.reg;
-        document.getElementById('dispAddr').innerHTML = s.addr; document.getElementById('dispContactInfo').innerText = s.contact;
-        document.getElementById('dispBank').innerText = s.bank; document.getElementById('dispAcc').innerText = s.acc;
-        document.getElementById('dispPayable').innerText = s.payable; document.getElementById('dispRegFooter').innerText = s.reg;
-        document.getElementById('dispNotes').innerHTML = s.notes;
-        if(s.logo) document.getElementById('printLogo').src = s.logo; if(s.qr) document.getElementById('printQR').src = s.qr;
-    }
-
-    function getFilename() {
-        const type = document.getElementById('docType').value;
-        const no = document.getElementById('invNo').value;
-        const client = document.getElementById('clientName').value || "CLIENT";
-        return (type === 'INVOICE') ? `CCIR-${no} - ${client}.pdf` : `CEQ${no} - ${client}.pdf`;
-    }
-    
-    function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
-    function addTimeInput(val = "") { const c = document.getElementById('timeContainer'); const i = document.createElement('input'); i.type = 'time'; i.className = 'evt-time-input'; i.value = val; i.style.width = "100%"; c.appendChild(i); }
-    function removeTimeInput() { const c = document.getElementById('timeContainer'); if(c.children.length > 1) c.removeChild(c.lastChild); }
-    function addItemRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME (AUTO CAPS)" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark(s) - Sentence Case" class="i-remark" onchange="formatSentenceCase(this)"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
-    function addMenuRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail (Sentence Case)" class="i-desc" onchange="formatSentenceCase(this)"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
-    function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
-    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
-    function toggleLogistics() { const m = document.getElementById('deliveryMethod').value; const b = document.getElementById('logistics-box'); const s = document.getElementById('setupFeeRow'); if (m === 'Self Pick Up') { b.style.display = 'none'; } else { b.style.display = 'block'; document.getElementById('logQtyLabel').innerText = (m === 'Delivery') ? "Qty (TRIPS)" : "Qty (Transport)"; s.style.display = (m === 'Set Up') ? "flex" : "none"; } }
-    function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
-    function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
 </script>
 </body>
 </html>
