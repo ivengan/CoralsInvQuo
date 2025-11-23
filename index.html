@@ -23,7 +23,7 @@
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
         
         label { display: block; font-size: 12px; color: #666; margin-top: 10px; font-weight: bold; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; font-size: 16px; } /* Font 16px prevents zoom on iOS */
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; font-size: 16px; } 
         
         #logistics-box, #discount-box { background: #e3f2fd; padding: 10px; border: 1px solid #90caf9; border-radius: 4px; margin-top: 10px; display:none; }
         #discount-box { background: #fff3cd; border-color: #ffeeba; } 
@@ -78,7 +78,7 @@
         .qr-img { width: 120px; height: 120px; object-fit: contain; }
         
         /* Database Sync Indicator */
-        #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #aaa; z-index: 3000; }
+        #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 12px; color: white; background: #000; padding: 5px 10px; border-radius: 5px; z-index: 3000; font-family: sans-serif; opacity: 0.7; }
     </style>
 </head>
 <body>
@@ -97,7 +97,7 @@
         <select id="docType" onchange="updateDocNoDisplay()"><option>INVOICE</option><option>QUOTATION</option></select>
         <div class="row-inputs" style="border:none; padding:0;">
             <label>Auto-Generated No.</label>
-            <input id="invNo" placeholder="Loading..." readonly style="background:#eee;">
+            <input id="invNo" placeholder="Syncing..." readonly style="background:#eee;">
             <input id="invDate" type="date">
         </div>
     </div>
@@ -147,7 +147,7 @@
     </div>
 
     <div class="card">
-        <h3>5. Actions</h3>
+        <h3>4. Actions</h3>
         <div class="btn-group">
             <button class="btn btn-success" onclick="convertAndSend()">Convert PDF and Send</button>
             <button class="btn btn-warning" style="background:#ffc107; color:black;" onclick="clearForm()">Clear Form</button>
@@ -159,9 +159,9 @@
 
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="text-align:center;">Company Settings</h3>
-        <label>Company Logo</label><input type="file" id="settingLogoInput" accept="image/*">
-        <label>Payment QR Code</label><input type="file" id="settingQRInput" accept="image/*">
+        <h3 style="text-align:center;">Company Settings (Synced)</h3>
+        <label>Company Logo (Max 200KB)</label><input type="file" id="settingLogoInput" accept="image/*">
+        <label>Payment QR Code (Max 200KB)</label><input type="file" id="settingQRInput" accept="image/*">
         <hr>
         <label>Company Name</label><input id="setCompName">
         <label>Registration No.</label><input id="setRegNo">
@@ -248,30 +248,24 @@
     let liveInvNo = 1771;
     let liveQtNo = 238;
 
-    /* --- 1. FIREBASE SETUP (SAFE BLOCK) --- */
-    // FIREBASE KEY
-	const firebaseConfig = {
-	  apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
-	  authDomain: "coralsinvoicedb.firebaseapp.com",
-	  projectId: "coralsinvoicedb",
-	  storageBucket: "coralsinvoicedb.firebasestorage.app",
-	  messagingSenderId: "993211696860",
-	  appId: "1:993211696860:web:2e971078ececdff03ed619"
-	};
-	
-    try {
-        // If user hasn't replaced the placeholder, don't run Firebase
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && typeof firebase !== 'undefined') {
-            if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-            db = firebase.database();
-        } else {
-            console.log("Running in Offline/Local Mode (No Firebase Config)");
-        }
-    } catch (e) {
-        console.error("Firebase Error:", e);
-    }
+    // --- FIREBASE CONFIGURATION (PRE-FILLED FOR YOU) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
+      authDomain: "coralsinvoicedb.firebaseapp.com",
+      databaseURL: "https://coralsinvoicedb-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "coralsinvoicedb",
+      storageBucket: "coralsinvoicedb.firebasestorage.app",
+      messagingSenderId: "993211696860",
+      appId: "1:993211696860:web:2e971078ececdff03ed619"
+    };
 
-    /* --- 2. STARTUP --- */
+    // Init Firebase Safe Mode
+    try {
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        db = firebase.database();
+    } catch (e) { console.error("Firebase Init Error:", e); }
+
+    // --- STARTUP ---
     window.onload = function() {
         if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
         addItemRow(); 
@@ -283,15 +277,23 @@
 
     function initDataLoad() {
         const status = document.getElementById('db-status');
-        
         if (db) {
             status.innerText = "DB: Connected";
-            // Listeners
+            status.style.background = "#28a745"; // Green for Success
+            
+            // 1. Sync Settings
             db.ref('settings').on('value', (snapshot) => {
                 const val = snapshot.val();
-                if(val) { currentSettings = val; applySettingsToUI(val); }
-                else { db.ref('settings').set(currentSettings); }
+                if(val) { 
+                    currentSettings = val; 
+                    applySettingsToUI(val); 
+                } else { 
+                    // If new DB, save defaults
+                    db.ref('settings').set(currentSettings); 
+                }
             });
+
+            // 2. Sync Counters
             db.ref('counters').on('value', (snapshot) => {
                 const val = snapshot.val();
                 if(val) {
@@ -303,19 +305,12 @@
                 }
             });
         } else {
-            status.innerText = "Mode: Local";
-            // Load from LocalStorage
-            const s = localStorage.getItem('compSettings');
-            if(s) { currentSettings = JSON.parse(s); applySettingsToUI(currentSettings); }
-            else { applySettingsToUI(currentSettings); }
-            
-            liveInvNo = parseInt(localStorage.getItem('lastInvNo')) || 1771;
-            liveQtNo = parseInt(localStorage.getItem('lastQtNo')) || 238;
-            updateDocNoDisplay();
+            status.innerText = "Mode: Local (Error)";
+            status.style.background = "#dc3545";
         }
     }
 
-    /* --- 3. CORE FUNCTIONS (GLOBAL) --- */
+    // --- REST OF FUNCTIONS ---
     function updateDocNoDisplay() {
         const type = document.getElementById('docType').value;
         document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
@@ -335,6 +330,7 @@
     function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
 
     async function saveSettings() {
+        // Read images to Base64
         const readFile = (file) => new Promise((resolve) => {
             if (!file) return resolve(null);
             const r = new FileReader();
@@ -356,18 +352,14 @@
             acc: document.getElementById('setAcc').value,
             payable: document.getElementById('setPayable').value,
             notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
-            logo: newLogo || currentSettings.logo || "",
+            logo: newLogo || currentSettings.logo || "", // Use new or keep old
             qr: newQR || currentSettings.qr || ""
         };
 
         if(db) {
-            db.ref('settings').set(s);
-        } else {
-            localStorage.setItem('compSettings', JSON.stringify(s));
-            currentSettings = s;
-            applySettingsToUI(s);
+            db.ref('settings').set(s); // Push to cloud
         }
-        alert("Saved!");
+        alert("Settings Saved & Synced!");
         closeSettings();
     }
 
@@ -393,19 +385,21 @@
     }
 
     function convertAndSend() {
-        // 1. Ensure Preview Data is Ready
         updatePreviewData();
         const paper = document.getElementById('invoice-paper');
         const ui = document.getElementById('editorUI');
         const backBtn = document.getElementById('backBtn');
 
-        // 2. Show Paper
-        paper.style.display = 'block';
-        ui.style.display = 'none';
-        backBtn.style.display = 'none';
+        paper.style.display = 'block'; ui.style.display = 'none'; backBtn.style.display = 'none';
 
-        // 3. Capture
-        const { jsPDF } = window.jspdf; // Ensure global access
+        // Check libraries
+        if (!window.jspdf || !window.html2canvas) {
+            alert("System libraries loading... please check internet.");
+            paper.style.display = 'none'; ui.style.display = 'block'; backBtn.style.display = 'block';
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
         
         html2canvas(paper, { scale: 2 }).then(canvas => {
             const imgData = canvas.toDataURL('image/png');
@@ -414,29 +408,18 @@
             const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
             doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
             
-            // 4. Save File
             const fname = getFilename();
             doc.save(fname);
 
-            // 5. Update Counter
+            // Increment counter in DB
             const type = document.getElementById('docType').value;
             if(db) {
                 const ref = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
                 ref.transaction((val) => (val || 0) + 1);
-            } else {
-                if(type === 'INVOICE') {
-                    liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo);
-                } else {
-                    liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo);
-                }
-                updateDocNoDisplay();
             }
 
-            // 6. Restore UI
-            paper.style.display = 'none';
-            ui.style.display = 'block';
+            paper.style.display = 'none'; ui.style.display = 'block';
             
-            // 7. Open WhatsApp
             const text = `Hi, please find the attached ${fname}.`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         });
@@ -449,145 +432,90 @@
             ["Total", document.getElementById('dispTotal').innerText],
             [""], ["Description", "Qty", "Price", "Total"]
         ];
-        
         const items = getItemsFromDOM();
         items.forEach(i => {
             if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]);
             else data.push([" - " + i.desc]);
         });
-
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-        XLSX.writeFile(wb, "Corals_Data.xlsx");
+        const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx");
     }
 
     function togglePreview() {
         updatePreviewData();
-        const p = document.getElementById('invoice-paper');
-        const u = document.getElementById('editorUI');
-        const b = document.getElementById('backBtn');
-        
-        if(p.style.display === 'none') {
-            p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block';
-            window.scrollTo(0,0);
-        } else {
-            p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none';
-        }
+        const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn');
+        if(p.style.display === 'none') { p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block'; window.scrollTo(0,0); } 
+        else { p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none'; }
     }
 
     function updatePreviewData() {
-        // Basic Fields
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
         document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
-        
-        const cNum = document.getElementById('clientContact').value;
-        const cName = document.getElementById('contactPerson').value;
+        const cNum = document.getElementById('clientContact').value; const cName = document.getElementById('contactPerson').value;
         document.getElementById('dispContact').innerText = cName ? `${cNum} (${cName})` : cNum;
-
         document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
         document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
         document.getElementById('dispRemarks').innerText = document.getElementById('invRemarks').value;
         document.getElementById('lblDocNo').innerText = (document.getElementById('docType').value === 'INVOICE') ? "INVOICE NO." : "QUOTE NO.";
 
-        // Items
-        const tbody = document.getElementById('printItemsBody');
-        tbody.innerHTML = '';
+        const tbody = document.getElementById('printItemsBody'); tbody.innerHTML = '';
         const items = getItemsFromDOM();
         let foodCost = 0, transportCost = 0, grandTotal = 0, count = 0;
 
         items.forEach(item => {
             if(item.type === 'item') {
-                count++;
-                let total = item.qty * item.price;
+                count++; let total = item.qty * item.price;
                 if(item.isLogistics) transportCost += total; else foodCost += total;
                 grandTotal += total;
-                
                 let descHtml = item.desc;
                 if(item.remark) descHtml += `<br><small style="color:#444; font-size:11px;">${item.remark.replace(/\n/g,'<br>')}</small>`;
-                
                 let pDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + item.price.toFixed(2);
                 let tDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + total.toFixed(2);
                 let qDisp = (item.desc === 'SELF PICK UP') ? '-' : item.qty;
-
                 tbody.innerHTML += `<tr><td style="font-weight:bold;">${count}</td><td style="font-weight:bold;">${descHtml}</td><td>${qDisp}</td><td>${pDisp}</td><td>${tDisp}</td></tr>`;
-            } else {
-                tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`;
-            }
+            } else { tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`; }
         });
 
-        // Discount Logic
         let discountAmount = 0;
         if(document.getElementById('chkDiscount').checked) {
-            const dType = document.getElementById('discType').value;
-            const dVal = parseFloat(document.getElementById('discVal').value) || 0;
+            const dType = document.getElementById('discType').value; const dVal = parseFloat(document.getElementById('discVal').value) || 0;
             const target = document.getElementById('discTarget').value;
-            
             let base = (target === 'food') ? foodCost : (target === 'transport') ? transportCost : grandTotal;
             discountAmount = (dType === 'percent') ? base * (dVal/100) : dVal;
-            
             const waive = document.getElementById('waiveTarget').value;
-            if(waive !== 'none') {
-                items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); });
-            }
+            if(waive !== 'none') { items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); }); }
         }
-
         let final = Math.max(0, grandTotal - discountAmount);
-        
         document.getElementById('dispSub').innerText = grandTotal.toFixed(2);
         const rowD = document.getElementById('rowDiscount');
-        if(discountAmount > 0) {
-            rowD.style.display = 'flex'; 
-            document.getElementById('dispDisc').innerText = discountAmount.toFixed(2);
-        } else {
-            rowD.style.display = 'none';
-        }
-        
+        if(discountAmount > 0) { rowD.style.display = 'flex'; document.getElementById('dispDisc').innerText = discountAmount.toFixed(2); } else { rowD.style.display = 'none'; }
         document.getElementById('dispTotal').innerText = final.toFixed(2);
         document.getElementById('dispWords').innerText = getMoneyText(final.toFixed(2));
     }
 
-    /* --- 6. HELPERS --- */
     function getItemsFromDOM() {
         const container = document.getElementById('items-container');
         const data = [];
         for (let i = 0; i < container.children.length; i++) {
-            const row = container.children[i]; 
-            const type = row.getAttribute('data-type');
+            const row = container.children[i]; const type = row.getAttribute('data-type');
             if(type === 'item') {
-                data.push({ 
-                    type: 'item', 
-                    desc: row.querySelector('.i-desc').value, 
-                    remark: row.querySelector('.i-remark').value, 
-                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, 
-                    price: parseFloat(row.querySelector('.i-price').value) || 0, 
-                    isLogistics: false 
-                });
-            } else if (type === 'menu') { 
-                data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); 
-            }
+                data.push({ type: 'item', desc: row.querySelector('.i-desc').value, remark: row.querySelector('.i-remark').value, qty: parseFloat(row.querySelector('.i-qty').value) || 0, price: parseFloat(row.querySelector('.i-price').value) || 0, isLogistics: false });
+            } else if (type === 'menu') { data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); }
         }
         const method = document.getElementById('deliveryMethod').value;
-        const lQ = parseFloat(document.getElementById('logQty').value) || 0;
-        const lP = parseFloat(document.getElementById('logPrice').value) || 0;
-        const sQ = parseFloat(document.getElementById('setupQty').value) || 0;
-        const sP = parseFloat(document.getElementById('setupPrice').value) || 0;
-
-        if (method === 'Delivery') { 
-            data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' }); 
-        } else if (method === 'Set Up') {
+        const lQ = parseFloat(document.getElementById('logQty').value) || 0; const lP = parseFloat(document.getElementById('logPrice').value) || 0;
+        const sQ = parseFloat(document.getElementById('setupQty').value) || 0; const sP = parseFloat(document.getElementById('setupPrice').value) || 0;
+        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' }); } 
+        else if (method === 'Set Up') {
             data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' });
             data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: sQ, price: sP, isLogistics: true, subType: 'setup' });
-        } else if (method === 'Self Pick Up') { 
-            data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); 
-        }
+        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); }
         return data;
     }
 
-    // UI Helpers
     function addTimeInput(val = "") { const c = document.getElementById('timeContainer'); const i = document.createElement('input'); i.type = 'time'; i.className = 'evt-time-input'; i.value = val; i.style.width = "100%"; c.appendChild(i); }
     function removeTimeInput() { const c = document.getElementById('timeContainer'); if(c.children.length > 1) c.removeChild(c.lastChild); }
     function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
@@ -600,7 +528,6 @@
     function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
     function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
     
-    // Formatters
     function formatTime12hr(t) { if(!t) return ""; let [h,m] = t.split(":"); let ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; }
     function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
     function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
