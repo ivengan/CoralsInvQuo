@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#333333">
     <title>Corals Invoice System</title>
     <link rel="manifest" href="manifest.json">
@@ -43,7 +43,7 @@
         .modal-content { background: white; width: 85%; max-width: 500px; margin: 5% auto; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
         
-        /* --- PREVIEW AREA WRAPPER --- */
+        /* --- PREVIEW WRAPPER (Fixed Centering) --- */
         #preview-wrapper { 
             display: none; 
             position: fixed; 
@@ -51,13 +51,16 @@
             width: 100%; height: 100%; 
             background: #333; 
             z-index: 1500; 
-            overflow-y: auto; /* Scrollable vertically */
-            overflow-x: hidden; 
-            padding-bottom: 80px; 
-            text-align: center; /* Helps center inline-block children */
+            overflow-y: auto; 
+            overflow-x: hidden;
+            padding-bottom: 80px;
+            
+            /* FLEXBOX CENTERING */
+            display: none; /* Toggled via JS */
+            justify-content: center;
+            align-items: flex-start; 
         }
         
-        /* CONTROLS BAR (Fixed Bottom in Preview) */
         #preview-controls {
             display: none;
             position: fixed; bottom: 0; left: 0; width: 100%;
@@ -72,24 +75,23 @@
             min-height: 297mm; 
             height: auto; 
             background: white; 
-            margin: 20px auto; /* Centers the paper */
+            margin: 20px auto; 
             padding: 15mm; 
             box-sizing: border-box; 
             position: relative; 
             color: #000; 
             transform-origin: top center;
-            display: inline-block; /* Allows text-align: center on parent to center this */
-            text-align: left; /* Reset text alignment inside paper */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* Mobile Fit-to-Screen Logic */
+        /* --- MOBILE SCALING FIX --- */
         @media (max-width: 800px) {
             #invoice-paper {
-                transform: scale(0.45); 
-                margin-top: 10px;
-                /* Ensure it stays centered by removing left margins */
-                margin-bottom: -130%; 
-                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+                /* Scale down to fit mobile width */
+                transform: scale(0.42); 
+                margin-top: 20px;
+                /* Important: Compensate for the empty space caused by scaling */
+                margin-bottom: -145%; 
             }
         }
 
@@ -99,7 +101,7 @@
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
         
-        /* BILL TO GRID LAYOUT */
+        /* BILL TO GRID */
         .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; float:left; }
         .bill-grid { display: grid; grid-template-columns: 110px 1fr; gap: 2px; }
         .bill-label { font-weight: bold; }
@@ -110,13 +112,12 @@
         .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
         .event-col { width: 32%; }
         
-        /* THICK BORDER TABLE */
+        /* TABLE */
         .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 2px solid #000; }
         .item-table th { background: #eee; border-bottom: 2px solid #000; border-right: 1px solid #000; padding: 8px; text-align: left; }
         .item-table th:last-child { border-right: none; }
         .item-table td { border-right: 1px solid #000; padding: 8px; vertical-align: top; }
         .item-table td:last-child { border-right: none; }
-        /* Zebra Striping */
         .item-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
         
         .totals-section { width: 100%; margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
@@ -239,6 +240,7 @@
     // --- INIT ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
+    // ⬇️ PASTE FIREBASE KEYS HERE ⬇️
     const firebaseConfig = {
       apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
       authDomain: "coralsinvoicedb.firebaseapp.com",
@@ -255,7 +257,7 @@
 
     try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error(e); }
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (DEFINED AT TOP) ---
     function getItemsFromDOM() {
         const container = document.getElementById('items-container');
         const data = [];
@@ -475,12 +477,11 @@
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
         
-        wrapper.style.display = 'block';
-        ctrls.style.display = 'flex'; // Show controls
+        wrapper.style.display = 'flex';
+        ctrls.style.display = 'flex'; 
         ui.style.display = 'none';
         window.scrollTo(0,0);
         
-        // Reset scale for display
         document.getElementById('invoice-paper').style.transform = '';
         document.getElementById('invoice-paper').style.marginBottom = '';
     }
@@ -501,12 +502,10 @@
         const ctrls = document.getElementById('preview-controls');
         const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
         
-        // Hide controls for capture
         ctrls.style.display = 'none';
         
-        // ENSURE JS PDF IS LOADED
         if (!window.jspdf) { 
-            alert("Error: PDF Library not loaded. Please refresh."); 
+            alert("Error: PDF Library not loaded."); 
             ctrls.style.display = 'flex';
             return;
         }
@@ -519,7 +518,6 @@
             doc.addImage(img, 'PNG', 0, 0, 210, c.height*210/c.width);
             doc.save(f);
             
-            // Increment
             const cur = document.getElementById('invNo').value;
             const typ = document.getElementById('docType').value;
             let isNew = false;
@@ -528,7 +526,6 @@
             if(isNew && db) { db.ref('counters/'+(typ==='INVOICE'?'invoice':'quotation')).transaction(v => (v||0)+1); }
             else if(isNew) { if(typ==='INVOICE'){ liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); } updateDocNoDisplay(); }
             
-            // Restore controls
             ctrls.style.display = 'flex';
         }).catch(err => {
             alert("PDF Error: " + err.message);
@@ -537,9 +534,7 @@
     }
 
     function exportExcel() { const d = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ]; const i = getItemsFromDOM(); i.forEach(x => { if(x.type === 'item') d.push([x.desc, x.qty, x.price, x.qty*x.price]); else d.push([" - " + x.desc]); }); const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(d); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx"); }
-    
-    function togglePreview() { enterPreviewMode(); } // Map old button to new function
-    
+    function togglePreview() { enterPreviewMode(); } 
     function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
 
     function updatePreviewData() {
