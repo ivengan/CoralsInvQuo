@@ -45,7 +45,7 @@
         
         /* --- PREVIEW WRAPPER --- */
         #preview-wrapper { 
-            display: none; /* Hidden by default */
+            display: none; 
             position: fixed; 
             top: 0; left: 0; 
             width: 100%; height: 100%; 
@@ -54,8 +54,7 @@
             overflow-y: auto; 
             overflow-x: hidden;
             padding-bottom: 80px;
-            
-            /* FLEXBOX CENTERING */
+            display: none; 
             justify-content: center;
             align-items: flex-start; 
             padding-top: 20px;
@@ -75,7 +74,7 @@
             min-height: 297mm; 
             height: auto; 
             background: white; 
-            margin: 0 auto; 
+            margin: 20px auto; 
             padding: 15mm; 
             box-sizing: border-box; 
             position: relative; 
@@ -85,16 +84,16 @@
             text-align: left;
         }
 
-        /* --- MOBILE SCALING FIX --- */
+        /* --- MOBILE FIT --- */
         @media (max-width: 800px) {
             #invoice-paper {
-                zoom: 0.44; 
-                margin-top: 0;
-                margin-bottom: 100px; 
-                transform: none; 
+                zoom: 0.45; 
+                margin-top: 10px;
+                margin-bottom: -145%; 
+                transform: none;
             }
-            /* FIX: Do not force display:block here. Let JS toggle it. */
             #preview-wrapper {
+                display: block; 
                 text-align: center;
             }
         }
@@ -105,7 +104,7 @@
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
         
-        /* BILL TO GRID */
+        /* BILL TO */
         .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; float:left; }
         .bill-grid { display: grid; grid-template-columns: 120px 1fr; gap: 2px; }
         .bill-label { font-weight: bold; }
@@ -116,7 +115,7 @@
         .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
         .event-col { width: 32%; }
         
-        /* THICK BORDER TABLE */
+        /* TABLE */
         .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 2px solid #000; }
         .item-table th { background: #eee; border-bottom: 2px solid #000; border-right: 1px solid #000; padding: 8px; text-align: left; }
         .item-table th:last-child { border-right: none; }
@@ -241,7 +240,6 @@
 </div>
 
 <script>
-    // --- INIT ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
     // ⬇️ PASTE FIREBASE KEYS HERE ⬇️
@@ -261,7 +259,7 @@
 
     try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error(e); }
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPERS ---
     function getItemsFromDOM() {
         const container = document.getElementById('items-container');
         const data = [];
@@ -303,6 +301,14 @@
         document.getElementById('dispNotes').innerHTML = s.notes;
         if(s.logo) document.getElementById('printLogo').src = s.logo; if(s.qr) document.getElementById('printQR').src = s.qr;
     }
+    
+    // --- DATE FORMATTER (DD-MM-YYYY) ---
+    function formatDateDDMMYYYY(dateStr) {
+        if (!dateStr) return "";
+        const [y, m, d] = dateStr.split("-");
+        return `${d}-${m}-${y}`;
+    }
+
     function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
     function addTimeInput(val="") { const c=document.getElementById('timeContainer'); const i=document.createElement('input'); i.type='time'; i.className='evt-time-input'; i.value=val; i.style.width="100%"; c.appendChild(i); }
     function removeTimeInput() { const c=document.getElementById('timeContainer'); if(c.children.length>0) c.removeChild(c.lastChild); }
@@ -318,7 +324,6 @@
     function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
     function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
 
-    // --- MAIN INIT ---
     window.onload = function() {
         if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
         addItemRow(); resetDates(); addTimeInput(); toggleLogistics(); initDataLoad();
@@ -337,7 +342,6 @@
         }
     }
 
-    // --- PDF IMPORT ---
     function triggerFillData() {
         const f = document.getElementById('ocrInput').files[0];
         if(!f) { alert("Select PDF"); return; }
@@ -357,19 +361,9 @@
                 pdf.getPage(1).then(page => {
                     page.getTextContent().then(content => {
                         const items = content.items.map(i => ({ str: i.str, y: i.transform[5], x: i.transform[4] }));
-                        items.sort((a,b) => {
-                           const yDiff = b.y - a.y;
-                           if (Math.abs(yDiff) < 6) return a.x - b.x; 
-                           return yDiff;
-                        });
-                        let text = "";
-                        let lastY = -1;
-                        items.forEach(i => {
-                            if (lastY !== -1 && Math.abs(i.y - lastY) > 6) text += "\n";
-                            else text += " ";
-                            text += i.str;
-                            lastY = i.y;
-                        });
+                        items.sort((a,b) => { const yDiff = b.y - a.y; if (Math.abs(yDiff) < 6) return a.x - b.x; return yDiff; });
+                        let text = ""; let lastY = -1;
+                        items.forEach(i => { if (lastY !== -1 && Math.abs(i.y - lastY) > 6) text += "\n"; else text += " "; text += i.str; lastY = i.y; });
                         parsePDF(text);
                         document.getElementById('loader').style.display='none';
                     });
@@ -381,23 +375,15 @@
 
     function parsePDF(txt) {
         alert("Extracted!");
-        
         const inv = txt.match(/(?:NO|INV)[.:\s]*([0-9]+)/i); 
         if(inv && (!document.getElementById('invNo').value || document.getElementById('invNo').value == "Loading...")) document.getElementById('invNo').value=inv[1];
-        
         const billIdx = txt.indexOf("Bill To:");
         if(billIdx > -1) {
-            const sub = txt.substring(billIdx);
-            const lines = sub.split('\n');
-            let nameFound = "";
-            let addrFound = "";
+            const sub = txt.substring(billIdx); const lines = sub.split('\n');
+            let nameFound = ""; let addrFound = "";
             for(let i=0; i<lines.length; i++) {
                 let line = lines[i].trim();
-                if(line.includes("Bill To:")) {
-                    let sameLine = line.replace("Bill To:","").trim();
-                    if(sameLine) nameFound = sameLine;
-                    continue; 
-                }
+                if(line.includes("Bill To:")) { let sameLine = line.replace("Bill To:","").trim(); if(sameLine) nameFound = sameLine; continue; }
                 if(line.includes("Contact:")) break; 
                 if(!nameFound) { nameFound = line; continue; }
                 if(nameFound && !line.includes("Date") && !line.includes("NO.")) addrFound += line + "\n";
@@ -405,177 +391,99 @@
             if(nameFound && !document.getElementById('clientName').value) document.getElementById('clientName').value = nameFound.toUpperCase();
             document.getElementById('clientAddress').value = addrFound.trim();
         }
-        
         const con = txt.match(/Contact(?:\s*Person)?[:.\s]*([0-9-]+)\s*(?:\((.*?)\))?/i); 
-        if(con) {
-            document.getElementById('clientContact').value=con[1];
-            if(con[2]) document.getElementById('contactPerson').value=con[2];
-        }
-
+        if(con) { document.getElementById('clientContact').value=con[1]; if(con[2]) document.getElementById('contactPerson').value=con[2]; }
         const dMatch = txt.match(/Date[:\s]*(\d{1,2}[/-]\w+[/-]\d{4}|\d{2,4}[/-]\d{1,2}[/-]\d{1,4})/i);
-        if(dMatch) { 
-            let d = Date.parse(dMatch[1]); if(!isNaN(d)) { document.getElementById('invDate').valueAsDate=new Date(d); document.getElementById('eventDate').valueAsDate=new Date(d); }
-        }
-        
+        if(dMatch) { let d = Date.parse(dMatch[1]); if(!isNaN(d)) { document.getElementById('invDate').valueAsDate=new Date(d); document.getElementById('eventDate').valueAsDate=new Date(d); } }
         document.getElementById('timeContainer').innerHTML='';
-        const tRegex = /(\d{1,2}:\d{2}\s?[AP]M)/gi;
-        const tMatch = txt.match(tRegex);
-        if(tMatch) {
-            tMatch.forEach(t => {
-                let [time,mod] = t.split(/\s?(?=[AP]M)/i); let [h,m]=time.split(':'); h=parseInt(h);
-                if(mod.toUpperCase()=='PM' && h<12) h+=12; if(mod.toUpperCase()=='AM' && h==12) h=0;
-                addTimeInput(`${h.toString().padStart(2,'0')}:${m}`);
-            });
-        } else { addTimeInput(); }
-
+        const tRegex = /(\d{1,2}:\d{2}\s?[AP]M)/gi; const tMatch = txt.match(tRegex);
+        if(tMatch) { tMatch.forEach(t => { let [time,mod] = t.split(/\s?(?=[AP]M)/i); let [h,m]=time.split(':'); h=parseInt(h); if(mod.toUpperCase()=='PM' && h<12) h+=12; if(mod.toUpperCase()=='AM' && h==12) h=0; addTimeInput(`${h.toString().padStart(2,'0')}:${m}`); }); } else { addTimeInput(); }
         if(txt.includes("DELIVERY")) document.getElementById('deliveryMethod').value="Delivery";
         else if(txt.includes("SET UP")) document.getElementById('deliveryMethod').value="Set Up";
         else document.getElementById('deliveryMethod').value="Self Pick Up";
         toggleLogistics();
 
         document.getElementById('items-container').innerHTML='';
-        const lines = txt.split('\n');
-        let hasItems = false;
-        
+        const lines = txt.split('\n'); let hasItems = false;
         lines.forEach(line => {
             const rowM = line.match(/(\d+)\s+(?:RM)?\s?([\d,.]+)\s+(?:RM)?\s?([\d,.]+)\s*$/i);
             if(rowM) {
-                const qty = rowM[1];
-                const price = rowM[2].replace(/,/g,'');
-                let desc = line.substring(0, line.lastIndexOf(qty)).trim();
-                desc = desc.replace(/^\d+\s+/, '');
-
+                const qty = rowM[1]; const price = rowM[2].replace(/,/g,'');
+                let desc = line.substring(0, line.lastIndexOf(qty)).trim(); desc = desc.replace(/^\d+\s+/, '');
                 if(!desc.includes("DELIVERY") && !desc.includes("TRANSPORT") && !desc.includes("SET UP")) {
-                    hasItems = true;
-                    addItemRow();
-                    const rows = document.querySelectorAll('.row-inputs');
-                    const last = rows[rows.length-1];
-                    last.querySelector('.i-desc').value = desc;
-                    last.querySelector('.i-qty').value = qty;
-                    last.querySelector('.i-price').value = price;
+                    hasItems = true; addItemRow(); const rows = document.querySelectorAll('.row-inputs'); const last = rows[rows.length-1];
+                    last.querySelector('.i-desc').value = desc; last.querySelector('.i-qty').value = qty; last.querySelector('.i-price').value = price;
                 } else {
                     if(desc.includes("TRANSPORT") || desc.includes("DELIVERY")) document.getElementById('logPrice').value = price;
                     if(desc.includes("SET UP")) document.getElementById('setupPrice').value = price;
                 }
-            } 
-            else if(line.trim().startsWith('-') && hasItems) {
-                addMenuRow();
-                const m = document.querySelectorAll('.row-menu input');
-                m[m.length-1].value = line.replace(/^-/,'').trim();
-            }
+            } else if(line.trim().startsWith('-') && hasItems) { addMenuRow(); const m = document.querySelectorAll('.row-menu input'); m[m.length-1].value = line.replace(/^-/,'').trim(); }
         });
         if(!hasItems) addItemRow();
     }
 
-    // --- STANDARD UI ---
     function updateDocNoDisplay() {
         const t = document.getElementById('docType').value;
         const c = document.getElementById('invNo').value;
         if(!c || c==(liveInvNo-1) || c==(liveQtNo-1) || c=="Loading...") document.getElementById('invNo').value = (t==='INVOICE')?liveInvNo:liveQtNo;
     }
     
-    // --- PREVIEW MODE TOGGLES ---
     function enterPreviewMode() {
         updatePreviewData();
         const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
+        const backBtn = document.getElementById('backBtn');
         
-        wrapper.style.display = 'flex';
-        ctrls.style.display = 'flex'; 
-        ui.style.display = 'none';
+        wrapper.style.display = 'flex'; ctrls.style.display = 'flex'; ui.style.display = 'none'; backBtn.style.display = 'none';
         window.scrollTo(0,0);
-        
-        // Reset scale for display
-        document.getElementById('invoice-paper').style.transform = '';
-        document.getElementById('invoice-paper').style.marginBottom = '';
+        document.getElementById('invoice-paper').style.transform = ''; document.getElementById('invoice-paper').style.marginBottom = '';
     }
 
     function exitPreviewMode() {
-        const wrapper = document.getElementById('preview-wrapper');
-        const ui = document.getElementById('editorUI');
-        const ctrls = document.getElementById('preview-controls');
-        
-        wrapper.style.display = 'none';
-        ctrls.style.display = 'none';
-        ui.style.display = 'block';
+        const wrapper = document.getElementById('preview-wrapper'); const ui = document.getElementById('editorUI'); const ctrls = document.getElementById('preview-controls'); const backBtn = document.getElementById('backBtn');
+        wrapper.style.display = 'none'; ctrls.style.display = 'none'; ui.style.display = 'block'; backBtn.style.display = 'block';
     }
     
-    // --- CONVERT ONLY ---
     function printPDF() {
         const paper = document.getElementById('invoice-paper');
         const ctrls = document.getElementById('preview-controls');
         const btn = document.getElementById('btnConvert');
         const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
         
-        // 1. UI Feedback & Prep
         const originalText = btn.innerText;
-        btn.innerText = "Generating...";
-        btn.disabled = true;
+        btn.innerText = "Generating..."; btn.disabled = true;
         
-        // 2. CRITICAL: Remove Zoom/Scale for High-Res Capture
-        // Mobile browsers fail if we try to snapshot a zoomed-out element.
-        // We must temporarily restore it to 100% size.
-        const originalStyle = paper.getAttribute("style"); // Save mobile styles
-        paper.style.transform = "none";
-        paper.style.margin = "0 auto";
-        paper.style.boxShadow = "none";
-        paper.style.width = "210mm"; 
-        paper.style.minHeight = "297mm";
-        
-        ctrls.style.display = 'none'; // Hide controls during capture
-        window.scrollTo(0,0);
+        const originalStyle = paper.getAttribute("style"); 
+        paper.style.transform = "none"; paper.style.margin = "0 auto"; paper.style.boxShadow = "none"; paper.style.width = "210mm"; paper.style.minHeight = "297mm";
+        ctrls.style.display = 'none'; window.scrollTo(0,0);
 
-        // Allow DOM to update before capturing
         setTimeout(() => {
+            if (!window.jspdf) { alert("Error: PDF Library not loaded."); ctrls.style.display = 'flex'; btn.innerText=originalText; btn.disabled=false; return; }
             const { jsPDF } = window.jspdf;
-            
             html2canvas(paper, {scale:2, useCORS: true}).then(c => {
                 const img = c.toDataURL('image/png');
                 const doc = new jsPDF('p', 'mm', 'a4');
-                const imgWidth = 210; 
-                const pageHeight = 297; 
-                const imgHeight = c.height * imgWidth / c.width;
-                let heightLeft = imgHeight;
-                let position = 0;
-
+                const imgWidth = 210; const pageHeight = 297; const imgHeight = c.height * imgWidth / c.width;
+                let heightLeft = imgHeight; let position = 0;
                 doc.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
-
-                while (heightLeft > 0) {
-                    position = heightLeft - imgHeight;
-                    doc.addPage();
-                    doc.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
-                
+                while (heightLeft > 0) { position = heightLeft - imgHeight; doc.addPage(); doc.addImage(img, 'PNG', 0, position, imgWidth, imgHeight); heightLeft -= pageHeight; }
                 doc.save(f);
                 
-                // Increment
-                const cur = document.getElementById('invNo').value;
-                const typ = document.getElementById('docType').value;
+                const cur = document.getElementById('invNo').value; const typ = document.getElementById('docType').value;
                 let isNew = false;
                 if(typ==='INVOICE' && cur==liveInvNo) isNew=true;
                 if(typ==='QUOTATION' && cur==liveQtNo) isNew=true;
                 if(isNew && db) { db.ref('counters/'+(typ==='INVOICE'?'invoice':'quotation')).transaction(v => (v||0)+1); }
                 else if(isNew) { if(typ==='INVOICE'){ liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); } updateDocNoDisplay(); }
                 
-                // Restore UI
-                if (originalStyle) paper.setAttribute("style", originalStyle);
-                else paper.removeAttribute("style");
-                
-                ctrls.style.display = 'flex';
-                btn.innerText = originalText;
-                btn.disabled = false;
-
+                if (originalStyle) paper.setAttribute("style", originalStyle); else paper.removeAttribute("style");
+                ctrls.style.display = 'flex'; btn.innerText = originalText; btn.disabled = false;
             }).catch(err => {
                 alert("PDF Error: " + err.message);
-                // Restore UI on error
-                if (originalStyle) paper.setAttribute("style", originalStyle);
-                else paper.removeAttribute("style");
-                ctrls.style.display = 'flex';
-                btn.innerText = originalText;
-                btn.disabled = false;
+                if (originalStyle) paper.setAttribute("style", originalStyle); else paper.removeAttribute("style");
+                ctrls.style.display = 'flex'; btn.innerText = originalText; btn.disabled = false;
             });
         }, 100);
     }
@@ -588,15 +496,19 @@
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
-        document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
         
+        // --- UPDATED DATE FORMAT ---
+        document.getElementById('dispDate').innerText = formatDateDDMMYYYY(document.getElementById('invDate').value);
+
         const cNum = document.getElementById('clientContact').value; 
         const cName = document.getElementById('contactPerson').value;
         let contactDisplay = cNum;
         if(cName) contactDisplay += ` (${cName})`;
         document.getElementById('dispContact').innerText = contactDisplay;
 
-        document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
+        // --- UPDATED EVENT DATE FORMAT ---
+        document.getElementById('dispEventDate').innerText = formatDateDDMMYYYY(document.getElementById('eventDate').value);
+
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
         document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
         document.getElementById('dispRemarks').innerText = document.getElementById('invRemarks').value;
