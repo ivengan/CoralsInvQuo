@@ -2,29 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#333333">
     <title>Corals Invoice System</title>
+    <link rel="manifest" href="manifest.json">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
         /* --- APP STYLING --- */
-        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
+        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; -webkit-tap-highlight-color: transparent; }
         .app-bar { background: #333; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         
         .editor-section { padding: 15px; max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
         
-        h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
         label { display: block; font-size: 12px; color: #666; margin-top: 10px; font-weight: bold; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; font-size: 16px; } /* Font 16px prevents zoom on iOS */
         
         #logistics-box, #discount-box { background: #e3f2fd; padding: 10px; border: 1px solid #90caf9; border-radius: 4px; margin-top: 10px; display:none; }
         #discount-box { background: #fff3cd; border-color: #ffeeba; } 
@@ -42,7 +41,7 @@
         .row-menu input { background: #f9f9f9; border: 1px dashed #ccc; }
 
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        .btn { padding: 12px; border: none; border-radius: 5px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn { padding: 12px; border: none; border-radius: 5px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-top: 10px; text-align: center;}
         .btn-primary { background: #007bff; } .btn-info { background: #17a2b8; } .btn-success { background: #28a745; } .btn-warning { background: #ffc107; color: black; } .btn-danger { background: #dc3545; } .btn-dark { background: #343a40; }
         
         .settings-fab { position: fixed; bottom: 20px; left: 20px; background: #444; color: white; padding: 15px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: none; font-weight: bold; z-index: 999; width: auto; cursor: pointer; }
@@ -77,7 +76,6 @@
         .bank-details { width: 100%; margin-bottom: 20px; }
         .qr-section { width: 200px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
         .qr-img { width: 120px; height: 120px; object-fit: contain; }
-        #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
         
         /* Database Sync Indicator */
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #aaa; z-index: 3000; }
@@ -88,31 +86,24 @@
 <div class="app-bar">
     <h2>Corals Invoice System</h2>
 </div>
-<div id="db-status">DB: Connecting...</div>
+<div id="db-status">System Ready</div>
 
 <button id="backBtn" class="btn-back-floating" onclick="togglePreview()">← BACK TO EDIT</button>
 
 <div class="editor-section" id="editorUI">
     <div class="card">
-        <h3>1. Import from Image</h3>
-        <input type="file" id="ocrInput" accept="image/*">
-        <div id="loader">Scanning image...</div>
-        <button class="btn btn-dark" onclick="triggerFillData()">Fill Data</button>
-    </div>
-
-    <div class="card">
-        <h3>2. Details</h3>
+        <h3>1. Details</h3>
         <label>Document Type</label>
         <select id="docType" onchange="updateDocNoDisplay()"><option>INVOICE</option><option>QUOTATION</option></select>
         <div class="row-inputs" style="border:none; padding:0;">
             <label>Auto-Generated No.</label>
-            <input id="invNo" placeholder="Syncing..." readonly style="background:#eee;">
+            <input id="invNo" placeholder="Loading..." readonly style="background:#eee;">
             <input id="invDate" type="date">
         </div>
     </div>
 
     <div class="card">
-        <h3>3. Client Info</h3>
+        <h3>2. Client Info</h3>
         <label>Customer Name</label>
         <input id="clientName" placeholder="CLIENT NAME" oninput="this.value = this.value.toUpperCase()">
         <label>Address</label>
@@ -136,7 +127,7 @@
     </div>
 
     <div class="card">
-        <h3>4. Items</h3>
+        <h3>3. Items</h3>
         <div id="items-container"></div>
         <div class="btn-group"><button class="btn btn-primary" onclick="addItemRow()">+ Add Item</button><button class="btn btn-info" onclick="addMenuRow()">+ Add Menu</button></div>
     </div>
@@ -168,7 +159,7 @@
 
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="text-align:center;">Company Settings (Synced)</h3>
+        <h3 style="text-align:center;">Company Settings</h3>
         <label>Company Logo</label><input type="file" id="settingLogoInput" accept="image/*">
         <label>Payment QR Code</label><input type="file" id="settingQRInput" accept="image/*">
         <hr>
@@ -244,285 +235,377 @@
 </div>
 
 <script>
-    /* --- 1. FIREBASE CONFIGURATION --- */
-    
-    // FIREBASE CONFIG
-	 const firebaseConfig = {
+    // --- GLOBAL VARIABLES ---
+    let db = null;
+    let currentSettings = {
+        name: "CORALS CAFE", reg: "(Co.Reg.No: 002632312-V)",
+        addr: "No. 42-G, Sierra Zentro 1, Jalan Sierra 10/2<br>Bandar 16 Sierra, 47120 Puchong, Selangor.",
+        contact: "+6012-236 5895 | coralscafe@gmail.com",
+        bank: "MAYBANK", acc: "514 833 414 938", payable: "CORALS CAFE",
+        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts.",
+        logo: "", qr: ""
+    };
+    let liveInvNo = 1771;
+    let liveQtNo = 238;
+
+    /* --- 1. FIREBASE SETUP (SAFE BLOCK) --- */
+    // FIREBASE KEY
+		const firebaseConfig = {
 	  apiKey: "AIzaSyDTfaymCIAXrSJJIGFKI9uUKmbKiYGeqOk",
 	  authDomain: "coralsinvoicedb.firebaseapp.com",
 	  projectId: "coralsinvoicedb",
 	  storageBucket: "coralsinvoicedb.firebasestorage.app",
 	  messagingSenderId: "993211696860",
 	  appId: "1:993211696860:web:2e971078ececdff03ed619"
-};
+	};
 
-    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-    const db = firebase.database();
-
-    const DEFAULT_COMP = {
-        name: "CORALS CAFE", reg: "(Co.Reg.No: 002632312-V)",
-        addr: "No. 42-G, Sierra Zentro 1, Jalan Sierra 10/2<br>Bandar 16 Sierra, 47120 Puchong, Selangor.",
-        contact: "+6012-236 5895 | coralscafe@gmail.com",
-        bank: "MAYBANK", acc: "514 833 414 938", payable: "CORALS CAFE",
-        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts.",
-        logo: "", qr: "" // New fields for images
-    };
-    
-    let currentSettings = DEFAULT_COMP;
-    let liveInvNo = 1771;
-    let liveQtNo = 238;
-
-    window.onload = function() {
-        if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-        addItemRow(); resetDates(); addTimeInput(); toggleLogistics();
-        initDatabaseListeners();
-    };
-
-    function initDatabaseListeners() {
-        const status = document.getElementById('db-status');
-        db.ref('settings').on('value', (snapshot) => {
-            status.innerText = "DB: Synced";
-            const val = snapshot.val();
-            if(val) {
-                currentSettings = val;
-                applySettingsToUI(val);
-            } else {
-                db.ref('settings').set(DEFAULT_COMP);
-            }
-        });
-        db.ref('counters').on('value', (snapshot) => {
-            const val = snapshot.val();
-            if(val) {
-                liveInvNo = val.invoice || 1771;
-                liveQtNo = val.quotation || 238;
-                updateDocNoDisplay();
-            } else {
-                db.ref('counters').set({ invoice: 1771, quotation: 238 });
-            }
-        });
+    try {
+        // If user hasn't replaced the placeholder, don't run Firebase
+        if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && typeof firebase !== 'undefined') {
+            if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+            db = firebase.database();
+        } else {
+            console.log("Running in Offline/Local Mode (No Firebase Config)");
+        }
+    } catch (e) {
+        console.error("Firebase Error:", e);
     }
 
+    /* --- 2. STARTUP --- */
+    window.onload = function() {
+        if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+        addItemRow(); 
+        resetDates(); 
+        addTimeInput(); 
+        toggleLogistics();
+        initDataLoad();
+    };
+
+    function initDataLoad() {
+        const status = document.getElementById('db-status');
+        
+        if (db) {
+            status.innerText = "DB: Connected";
+            // Listeners
+            db.ref('settings').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if(val) { currentSettings = val; applySettingsToUI(val); }
+                else { db.ref('settings').set(currentSettings); }
+            });
+            db.ref('counters').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if(val) {
+                    liveInvNo = val.invoice || 1771;
+                    liveQtNo = val.quotation || 238;
+                    updateDocNoDisplay();
+                } else {
+                    db.ref('counters').set({ invoice: 1771, quotation: 238 });
+                }
+            });
+        } else {
+            status.innerText = "Mode: Local";
+            // Load from LocalStorage
+            const s = localStorage.getItem('compSettings');
+            if(s) { currentSettings = JSON.parse(s); applySettingsToUI(currentSettings); }
+            else { applySettingsToUI(currentSettings); }
+            
+            liveInvNo = parseInt(localStorage.getItem('lastInvNo')) || 1771;
+            liveQtNo = parseInt(localStorage.getItem('lastQtNo')) || 238;
+            updateDocNoDisplay();
+        }
+    }
+
+    /* --- 3. CORE FUNCTIONS (GLOBAL) --- */
     function updateDocNoDisplay() {
         const type = document.getElementById('docType').value;
         document.getElementById('invNo').value = (type === 'INVOICE') ? liveInvNo : liveQtNo;
     }
 
-    /* --- 2. SETTINGS LOGIC (DB + IMAGES) --- */
     function openSettings() { 
-        document.getElementById('settingsModal').style.display = 'block'; 
-        document.getElementById('setCompName').value = currentSettings.name; 
+        document.getElementById('settingsModal').style.display = 'block';
+        document.getElementById('setCompName').value = currentSettings.name;
         document.getElementById('setRegNo').value = currentSettings.reg;
-        document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n'); 
+        document.getElementById('setAddr').value = currentSettings.addr.replace(/<br>/g, '\n');
         document.getElementById('setContact').value = currentSettings.contact;
-        document.getElementById('setBank').value = currentSettings.bank; 
-        document.getElementById('setAcc').value = currentSettings.acc; 
+        document.getElementById('setBank').value = currentSettings.bank;
+        document.getElementById('setAcc').value = currentSettings.acc;
         document.getElementById('setPayable').value = currentSettings.payable;
         document.getElementById('setNotes').value = currentSettings.notes.replace(/<br>/g, '\n');
     }
-    
     function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-    
-    // Helper to read file to base64
-    const readFile = (file) => new Promise((resolve) => {
-        if (!file) return resolve(null);
-        const r = new FileReader();
-        r.onload = (e) => resolve(e.target.result);
-        r.readAsDataURL(file);
-    });
 
     async function saveSettings() {
+        const readFile = (file) => new Promise((resolve) => {
+            if (!file) return resolve(null);
+            const r = new FileReader();
+            r.onload = (e) => resolve(e.target.result);
+            r.readAsDataURL(file);
+        });
+
         const lIn = document.getElementById('settingLogoInput').files[0]; 
         const qIn = document.getElementById('settingQRInput').files[0];
-
-        // Wait for images to read
         const newLogo = await readFile(lIn);
         const newQR = await readFile(qIn);
 
-        // Update settings object
         const s = {
-            name: document.getElementById('setCompName').value, 
+            name: document.getElementById('setCompName').value,
             reg: document.getElementById('setRegNo').value,
-            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'), 
+            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'),
             contact: document.getElementById('setContact').value,
-            bank: document.getElementById('setBank').value, 
-            acc: document.getElementById('setAcc').value, 
+            bank: document.getElementById('setBank').value,
+            acc: document.getElementById('setAcc').value,
             payable: document.getElementById('setPayable').value,
             notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>'),
-            // Use new image if uploaded, otherwise keep existing from DB
             logo: newLogo || currentSettings.logo || "",
             qr: newQR || currentSettings.qr || ""
         };
-        
-        // Push to Firebase (Images now sync!)
-        db.ref('settings').set(s);
-        alert("Settings Saved & Synced to All Devices!"); 
+
+        if(db) {
+            db.ref('settings').set(s);
+        } else {
+            localStorage.setItem('compSettings', JSON.stringify(s));
+            currentSettings = s;
+            applySettingsToUI(s);
+        }
+        alert("Saved!");
         closeSettings();
     }
 
     function applySettingsToUI(s) {
-        document.getElementById('dispCompName').innerText = s.name; 
+        document.getElementById('dispCompName').innerText = s.name;
         document.getElementById('dispRegHeader').innerText = s.reg;
-        document.getElementById('dispAddr').innerHTML = s.addr; 
+        document.getElementById('dispAddr').innerHTML = s.addr;
         document.getElementById('dispContactInfo').innerText = s.contact;
-        document.getElementById('dispBank').innerText = s.bank; 
+        document.getElementById('dispBank').innerText = s.bank;
         document.getElementById('dispAcc').innerText = s.acc;
-        document.getElementById('dispPayable').innerText = s.payable; 
+        document.getElementById('dispPayable').innerText = s.payable;
         document.getElementById('dispRegFooter').innerText = s.reg;
         document.getElementById('dispNotes').innerHTML = s.notes;
-        
         if(s.logo) document.getElementById('printLogo').src = s.logo;
         if(s.qr) document.getElementById('printQR').src = s.qr;
     }
 
-    /* --- 3. CONVERT & SEND --- */
-    function convertAndSend() {
-        updatePreviewData(); 
-        const element = document.getElementById('invoice-paper');
-        const backBtn = document.getElementById('backBtn');
-        const filename = getFilename();
-
-        element.style.display = 'block'; 
-        document.getElementById('editorUI').style.display = 'none'; 
-        backBtn.style.display = 'none';
-
-        html2canvas(element, { scale: 2 }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const { jsPDF } = window.jspdf;
-            const imgWidth = 210; 
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
-            
-            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            doc.save(filename); 
-
-            const type = document.getElementById('docType').value;
-            const counterRef = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
-            counterRef.transaction((currentVal) => (currentVal || 0) + 1);
-
-            element.style.display = 'none';
-            document.getElementById('editorUI').style.display = 'block';
-            
-            const text = `Hi, please find the attached ${filename}.`;
-            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-            window.open(url, '_blank');
-        });
-    }
-
-    /* --- 4. UTILITIES --- */
     function getFilename() {
         const type = document.getElementById('docType').value;
         const no = document.getElementById('invNo').value;
         const client = document.getElementById('clientName').value || "CLIENT";
         return (type === 'INVOICE') ? `CCIR-${no} - ${client}.pdf` : `CEQ${no} - ${client}.pdf`;
     }
-    
-    function resetDates() {
-        document.getElementById('invDate').valueAsDate = new Date();
-        document.getElementById('eventDate').valueAsDate = new Date();
-    }
-    function formatTime12hr(timeStr) {
-        if (!timeStr) return "";
-        let [h, m] = timeStr.split(":");
-        let ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; h = h ? h : 12; 
-        return `${h}:${m} ${ampm}`;
-    }
-    function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
-    function numToWords(n) {
-        const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
-        const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
-        if ((n = n.toString()).length > 9) return 'overflow';
-        let n_array = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-        if (!n_array) return; 
-        let str = '';
-        str += (n_array[1] != 0) ? (a[Number(n_array[1])] || b[n_array[1][0]] + ' ' + a[n_array[1][1]]) + 'crore ' : '';
-        str += (n_array[2] != 0) ? (a[Number(n_array[2])] || b[n_array[2][0]] + ' ' + a[n_array[2][1]]) + 'lakh ' : '';
-        str += (n_array[3] != 0) ? (a[Number(n_array[3])] || b[n_array[3][0]] + ' ' + a[n_array[3][1]]) + 'thousand ' : '';
-        str += (n_array[4] != 0) ? (a[Number(n_array[4])] || b[n_array[4][0]] + ' ' + a[n_array[4][1]]) + 'hundred ' : '';
-        str += (n_array[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_array[5])] || b[n_array[5][0]] + ' ' + a[n_array[5][1]]) : '';
-        return str.trim();
-    }
-    function getMoneyText(total) {
-        let s = total.toString(); let parts = s.split("."); let ringgit = parseInt(parts[0]); let sen = parts.length > 1 ? parseInt(parts[1].padEnd(2,'0').substring(0,2)) : 0;
-        let text = numToWords(ringgit) + " "; if(sen > 0) text += "and " + numToWords(sen) + " sen"; text = text.trim() + " ONLY";
-        return text.charAt(0).toUpperCase() + text.slice(1);
-    }
 
-    /* --- 5. UI LOGIC --- */
-    function addTimeInput(val = "") { const c = document.getElementById('timeContainer'); const i = document.createElement('input'); i.type = 'time'; i.className = 'evt-time-input'; i.value = val; i.style.width = "100%"; c.appendChild(i); }
-    function removeTimeInput() { const c = document.getElementById('timeContainer'); if(c.children.length > 1) c.removeChild(c.lastChild); }
-    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
-    function toggleLogistics() {
-        const m = document.getElementById('deliveryMethod').value; const b = document.getElementById('logistics-box'); const s = document.getElementById('setupFeeRow');
-        if (m === 'Self Pick Up') { b.style.display = 'none'; } else { b.style.display = 'block'; document.getElementById('logQtyLabel').innerText = (m === 'Delivery') ? "Qty (TRIPS)" : "Qty (Transport)"; s.style.display = (m === 'Set Up') ? "flex" : "none"; }
-    }
-    function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
-    function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
-    function addItemRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME (AUTO CAPS)" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark(s) - Sentence Case" class="i-remark" onchange="formatSentenceCase(this)"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
-    function addMenuRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail (Sentence Case)" class="i-desc" onchange="formatSentenceCase(this)"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
-    function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
-    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input, textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
-    function triggerFillData() { const i = document.getElementById('ocrInput'); if (!i.files || !i.files[0]) { alert("No image selected."); return; } processImage(i); }
-    function processImage(input) {
-        if(!input.files[0]) return; document.getElementById('loader').style.display = 'block';
-        Tesseract.recognize(input.files[0], 'eng').then(({ data: { text } }) => {
-            document.getElementById('loader').style.display = 'none'; alert("Data extracted!");
-            const clM = text.match(/(?:Client|Customer)\s*[:.]?\s*(.*)/i); const coM = text.match(/(?:Contact|Person)\s*[:.]?\s*(.*)/i);
-            let cn = ""; if(clM && clM[1].length > 2) cn = clM[1]; else if (coM) cn = coM[1].split('(')[0];
-            if(cn) document.getElementById('clientName').value = cn.toUpperCase();
-            if(coM) { const nm = coM[1].match(/(\d{3}-\d+|\d{9,})/); if(nm) document.getElementById('clientContact').value = nm[0]; if(coM[1].includes('(')) document.getElementById('contactPerson').value = coM[1].split('(')[0].trim(); }
-            const dtM = text.match(/(?:Date)\s*(?:of)?\s*[:.]?\s*(.*)/i); if(dtM) { let cD = dtM[1].replace(/(\d+)(st|nd|rd|th)/, '$1'); let p = Date.parse(cD); if(!isNaN(p)) document.getElementById('eventDate').valueAsDate = new Date(p); }
-            const tiM = text.match(/(?:Time)\s*(?:of)?\s*[:.]?\s*(.*)/i); if(tiM) { let tms = tiM[1].split(/[+&]| and /); document.getElementById('timeContainer').innerHTML = ''; tms.forEach(t => { const p = t.match(/(\d{1,4})\s?(am|pm)/i); if(p) { let d = p[1]; let m = p[2].toLowerCase(); let h, mn; if(d.length<=2) { h=parseInt(d); mn=0; } else { mn=parseInt(d.slice(-2)); h=parseInt(d.slice(0,-2)); } if(m=='pm' && h<12) h+=12; if(m=='am' && h==12) h=0; addTimeInput(`${h.toString().padStart(2,'0')}:${mn.toString().padStart(2,'0')}`); }}); }
+    function convertAndSend() {
+        // 1. Ensure Preview Data is Ready
+        updatePreviewData();
+        const paper = document.getElementById('invoice-paper');
+        const ui = document.getElementById('editorUI');
+        const backBtn = document.getElementById('backBtn');
+
+        // 2. Show Paper
+        paper.style.display = 'block';
+        ui.style.display = 'none';
+        backBtn.style.display = 'none';
+
+        // 3. Capture
+        const { jsPDF } = window.jspdf; // Ensure global access
+        
+        html2canvas(paper, { scale: 2 }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 210; 
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
+            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            
+            // 4. Save File
+            const fname = getFilename();
+            doc.save(fname);
+
+            // 5. Update Counter
+            const type = document.getElementById('docType').value;
+            if(db) {
+                const ref = db.ref('counters/' + (type === 'INVOICE' ? 'invoice' : 'quotation'));
+                ref.transaction((val) => (val || 0) + 1);
+            } else {
+                if(type === 'INVOICE') {
+                    liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo);
+                } else {
+                    liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo);
+                }
+                updateDocNoDisplay();
+            }
+
+            // 6. Restore UI
+            paper.style.display = 'none';
+            ui.style.display = 'block';
+            
+            // 7. Open WhatsApp
+            const text = `Hi, please find the attached ${fname}.`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         });
     }
-    function togglePreview() { const p = document.getElementById('invoice-paper'); const u = document.getElementById('editorUI'); const b = document.getElementById('backBtn'); if(p.style.display === 'none') { updatePreviewData(); p.style.display='block'; u.style.display='none'; b.style.display='block'; window.scrollTo(0,0); } else { p.style.display='none'; u.style.display='block'; b.style.display='none'; } }
-    
+
+    function exportExcel() {
+        const data = [
+            ["Doc No", document.getElementById('invNo').value],
+            ["Client", document.getElementById('clientName').value],
+            ["Total", document.getElementById('dispTotal').innerText],
+            [""], ["Description", "Qty", "Price", "Total"]
+        ];
+        
+        const items = getItemsFromDOM();
+        items.forEach(i => {
+            if(i.type === 'item') data.push([i.desc, i.qty, i.price, i.qty*i.price]);
+            else data.push([" - " + i.desc]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+        XLSX.writeFile(wb, "Corals_Data.xlsx");
+    }
+
+    function togglePreview() {
+        updatePreviewData();
+        const p = document.getElementById('invoice-paper');
+        const u = document.getElementById('editorUI');
+        const b = document.getElementById('backBtn');
+        
+        if(p.style.display === 'none') {
+            p.style.display = 'block'; u.style.display = 'none'; b.style.display = 'block';
+            window.scrollTo(0,0);
+        } else {
+            p.style.display = 'none'; u.style.display = 'block'; b.style.display = 'none';
+        }
+    }
+
     function updatePreviewData() {
+        // Basic Fields
         document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
         document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
         document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
         document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
-        const cNum = document.getElementById('clientContact').value; const cName = document.getElementById('contactPerson').value;
+        
+        const cNum = document.getElementById('clientContact').value;
+        const cName = document.getElementById('contactPerson').value;
         document.getElementById('dispContact').innerText = cName ? `${cNum} (${cName})` : cNum;
+
         document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
         document.getElementById('dispEventTime').innerText = getAllTimeStrings();
         document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
         document.getElementById('dispRemarks').innerText = document.getElementById('invRemarks').value;
         document.getElementById('lblDocNo').innerText = (document.getElementById('docType').value === 'INVOICE') ? "INVOICE NO." : "QUOTE NO.";
 
-        const tbody = document.getElementById('printItemsBody'); tbody.innerHTML = '';
+        // Items
+        const tbody = document.getElementById('printItemsBody');
+        tbody.innerHTML = '';
         const items = getItemsFromDOM();
         let foodCost = 0, transportCost = 0, grandTotal = 0, count = 0;
 
         items.forEach(item => {
             if(item.type === 'item') {
-                count++; let total = item.qty * item.price;
+                count++;
+                let total = item.qty * item.price;
                 if(item.isLogistics) transportCost += total; else foodCost += total;
                 grandTotal += total;
+                
                 let descHtml = item.desc;
                 if(item.remark) descHtml += `<br><small style="color:#444; font-size:11px;">${item.remark.replace(/\n/g,'<br>')}</small>`;
+                
                 let pDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + item.price.toFixed(2);
                 let tDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + total.toFixed(2);
                 let qDisp = (item.desc === 'SELF PICK UP') ? '-' : item.qty;
+
                 tbody.innerHTML += `<tr><td style="font-weight:bold;">${count}</td><td style="font-weight:bold;">${descHtml}</td><td>${qDisp}</td><td>${pDisp}</td><td>${tDisp}</td></tr>`;
-            } else { tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`; }
+            } else {
+                tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`;
+            }
         });
 
+        // Discount Logic
         let discountAmount = 0;
         if(document.getElementById('chkDiscount').checked) {
-            const discType = document.getElementById('discType').value; const discVal = parseFloat(document.getElementById('discVal').value) || 0;
+            const dType = document.getElementById('discType').value;
+            const dVal = parseFloat(document.getElementById('discVal').value) || 0;
             const target = document.getElementById('discTarget').value;
-            let baseAmount = (target === 'food') ? foodCost : (target === 'transport') ? transportCost : grandTotal;
-            discountAmount = (discType === 'percent') ? baseAmount * (discVal / 100) : discVal;
+            
+            let base = (target === 'food') ? foodCost : (target === 'transport') ? transportCost : grandTotal;
+            discountAmount = (dType === 'percent') ? base * (dVal/100) : dVal;
+            
             const waive = document.getElementById('waiveTarget').value;
-            if(waive !== 'none') { items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); }); }
+            if(waive !== 'none') {
+                items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); });
+            }
         }
-        let finalTotal = Math.max(0, grandTotal - discountAmount);
+
+        let final = Math.max(0, grandTotal - discountAmount);
+        
         document.getElementById('dispSub').innerText = grandTotal.toFixed(2);
-        const rowDisc = document.getElementById('rowDiscount');
-        if(discountAmount > 0) { rowDisc.style.display = 'flex'; document.getElementById('dispDisc').innerText = discountAmount.toFixed(2); } else { rowDisc.style.display = 'none'; }
-        document.getElementById('dispTotal').innerText = finalTotal.toFixed(2);
-        document.getElementById('dispWords').innerText = getMoneyText(finalTotal.toFixed(2));
+        const rowD = document.getElementById('rowDiscount');
+        if(discountAmount > 0) {
+            rowD.style.display = 'flex'; 
+            document.getElementById('dispDisc').innerText = discountAmount.toFixed(2);
+        } else {
+            rowD.style.display = 'none';
+        }
+        
+        document.getElementById('dispTotal').innerText = final.toFixed(2);
+        document.getElementById('dispWords').innerText = getMoneyText(final.toFixed(2));
     }
+
+    /* --- 6. HELPERS --- */
+    function getItemsFromDOM() {
+        const container = document.getElementById('items-container');
+        const data = [];
+        for (let i = 0; i < container.children.length; i++) {
+            const row = container.children[i]; 
+            const type = row.getAttribute('data-type');
+            if(type === 'item') {
+                data.push({ 
+                    type: 'item', 
+                    desc: row.querySelector('.i-desc').value, 
+                    remark: row.querySelector('.i-remark').value, 
+                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, 
+                    price: parseFloat(row.querySelector('.i-price').value) || 0, 
+                    isLogistics: false 
+                });
+            } else if (type === 'menu') { 
+                data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); 
+            }
+        }
+        const method = document.getElementById('deliveryMethod').value;
+        const lQ = parseFloat(document.getElementById('logQty').value) || 0;
+        const lP = parseFloat(document.getElementById('logPrice').value) || 0;
+        const sQ = parseFloat(document.getElementById('setupQty').value) || 0;
+        const sP = parseFloat(document.getElementById('setupPrice').value) || 0;
+
+        if (method === 'Delivery') { 
+            data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' }); 
+        } else if (method === 'Set Up') {
+            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: lQ, price: lP, isLogistics: true, subType: 'transport' });
+            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: sQ, price: sP, isLogistics: true, subType: 'setup' });
+        } else if (method === 'Self Pick Up') { 
+            data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); 
+        }
+        return data;
+    }
+
+    // UI Helpers
+    function addTimeInput(val = "") { const c = document.getElementById('timeContainer'); const i = document.createElement('input'); i.type = 'time'; i.className = 'evt-time-input'; i.value = val; i.style.width = "100%"; c.appendChild(i); }
+    function removeTimeInput() { const c = document.getElementById('timeContainer'); if(c.children.length > 1) c.removeChild(c.lastChild); }
+    function getAllTimeStrings() { const i = document.querySelectorAll('.evt-time-input'); const t = []; i.forEach(x => { if(x.value) t.push(formatTime12hr(x.value)); }); return t.length > 0 ? t.join(" & ") : "-"; }
+    function addItemRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME (AUTO CAPS)" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark(s) - Sentence Case" class="i-remark" onchange="formatSentenceCase(this)"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function addMenuRow() { const id = Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail (Sentence Case)" class="i-desc" onchange="formatSentenceCase(this)"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
+    function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); }
+    function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
+    function toggleLogistics() { const m = document.getElementById('deliveryMethod').value; const b = document.getElementById('logistics-box'); const s = document.getElementById('setupFeeRow'); if (m === 'Self Pick Up') { b.style.display = 'none'; } else { b.style.display = 'block'; document.getElementById('logQtyLabel').innerText = (m === 'Delivery') ? "Qty (TRIPS)" : "Qty (Transport)"; s.style.display = (m === 'Set Up') ? "flex" : "none"; } }
+    function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
+    function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
+    
+    // Formatters
+    function formatTime12hr(t) { if(!t) return ""; let [h,m] = t.split(":"); let ap = h>=12?'PM':'AM'; h=h%12||12; return `${h}:${m} ${ap}`; }
+    function formatSentenceCase(el) { if(!el.value) return; el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase(); }
+    function numToWords(n) { const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen ']; const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']; if((n=n.toString()).length>9) return 'overflow'; let n_a = ('000000000'+n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/); if(!n_a) return; let str=''; str+=(n_a[1]!=0)?(a[Number(n_a[1])]||b[n_a[1][0]]+' '+a[n_a[1][1]])+'crore ':''; str+=(n_a[2]!=0)?(a[Number(n_a[2])]||b[n_a[2][0]]+' '+a[n_a[2][1]])+'lakh ':''; str+=(n_a[3]!=0)?(a[Number(n_a[3])]||b[n_a[3][0]]+' '+a[n_a[3][1]])+'thousand ':''; str+=(n_a[4]!=0)?(a[Number(n_a[4])]||b[n_a[4][0]]+' '+a[n_a[4][1]])+'hundred ':''; str+=(n_a[5]!=0)?((str!='')?'and ':'')+(a[Number(n_a[5])]||b[n_a[5][0]]+' '+a[n_a[5][1]]):''; return str.trim(); }
+    function getMoneyText(t) { let s=t.toString(); let p=s.split("."); let r=parseInt(p[0]); let sc=p.length>1?parseInt(p[1].padEnd(2,'0').substring(0,2)):0; let txt=numToWords(r)+" "; if(sc>0) txt+="and "+numToWords(sc)+" sen"; return (txt.trim()+" ONLY").toUpperCase(); }
+
 </script>
 </body>
 </html>
