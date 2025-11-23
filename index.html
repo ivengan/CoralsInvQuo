@@ -54,10 +54,14 @@
             overflow-y: auto; 
             overflow-x: hidden;
             padding-bottom: 80px;
-            text-align: center; 
+            
+            /* FLEXBOX CENTERING */
+            display: none; /* Toggled via JS */
+            justify-content: center;
+            align-items: flex-start; 
+            padding-top: 20px;
         }
         
-        /* CONTROLS BAR */
         #preview-controls {
             display: none;
             position: fixed; bottom: 0; left: 0; width: 100%;
@@ -72,24 +76,27 @@
             min-height: 297mm; 
             height: auto; 
             background: white; 
-            margin: 20px auto; 
+            margin: 0 auto; /* Centered */
             padding: 15mm; 
             box-sizing: border-box; 
             position: relative; 
             color: #000; 
-            text-align: left;
+            transform-origin: top center;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            text-align: left;
         }
 
-        /* --- MOBILE FIT SCREEN --- */
+        /* --- MOBILE SCALING FIX --- */
         @media (max-width: 800px) {
             #invoice-paper {
-                /* Use ZOOM to fit width perfectly without mess */
-                zoom: 0.46; 
-                margin: 20px auto;
+                zoom: 0.44; /* Fits standard phone width */
+                margin-top: 0;
+                margin-bottom: 100px; 
+                transform: none; /* Reset transform */
             }
             #preview-wrapper {
-                padding-top: 10px;
+                display: block; /* Allow normal flow for zoom */
+                text-align: center;
             }
         }
 
@@ -99,7 +106,7 @@
         .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
         .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
         
-        /* UPDATED BILL TO (BOLD LABELS) */
+        /* BILL TO GRID */
         .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; float:left; }
         .bill-grid { display: grid; grid-template-columns: 120px 1fr; gap: 2px; }
         .bill-label { font-weight: bold; }
@@ -110,7 +117,7 @@
         .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
         .event-col { width: 32%; }
         
-        /* THICK BORDER TABLE & NO ITALIC MENU */
+        /* THICK BORDER TABLE */
         .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 2px solid #000; }
         .item-table th { background: #eee; border-bottom: 2px solid #000; border-right: 1px solid #000; padding: 8px; text-align: left; }
         .item-table th:last-child { border-right: none; }
@@ -128,7 +135,7 @@
         .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
         .bank-details { width: 100%; margin-bottom: 20px; }
         .qr-section { width: 400px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
-        .qr-img { width: 340px; height: 460px; object-fit: contain; }
+        .qr-img { width: 330px; height: 460px; object-fit: contain; }
         #db-status { position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: white; padding: 5px 10px; border-radius: 5px; z-index: 3000; }
         #loader { display: none; text-align: center; padding: 20px; background: #fff3cd; color: #856404; border-radius: 4px; margin-bottom: 10px; }
     </style>
@@ -230,7 +237,7 @@
     </div>
     <div id="preview-controls">
         <button class="btn btn-warning" onclick="exitPreviewMode()">Back to Edit</button>
-        <button class="btn btn-success" onclick="printPDF()">Convert PDF</button>
+        <button id="btnConvert" class="btn btn-success" onclick="printPDF()">Convert PDF</button>
     </div>
 </div>
 
@@ -474,10 +481,12 @@
         const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
+        const backBtn = document.getElementById('backBtn');
         
         wrapper.style.display = 'flex';
         ctrls.style.display = 'flex'; 
         ui.style.display = 'none';
+        backBtn.style.display = 'none';
         window.scrollTo(0,0);
         
         document.getElementById('invoice-paper').style.transform = '';
@@ -488,48 +497,91 @@
         const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
+        const backBtn = document.getElementById('backBtn');
         
         wrapper.style.display = 'none';
         ctrls.style.display = 'none';
         ui.style.display = 'block';
+        backBtn.style.display = 'block';
     }
     
     // --- CONVERT ONLY ---
     function printPDF() {
         const paper = document.getElementById('invoice-paper');
         const ctrls = document.getElementById('preview-controls');
+        const btn = document.getElementById('btnConvert');
         const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
         
-        ctrls.style.display = 'none';
+        const originalText = btn.innerText;
+        btn.innerText = "Generating...";
+        btn.disabled = true;
         
-        if (!window.jspdf) { 
-            alert("Error: PDF Library not loaded."); 
-            ctrls.style.display = 'flex';
-            return;
-        }
+        // 1. UNSCALE for High Res
+        const originalStyle = paper.getAttribute("style"); 
+        paper.style.transform = "none";
+        paper.style.margin = "0 auto";
+        paper.style.boxShadow = "none";
+        paper.style.width = "210mm"; 
+        paper.style.minHeight = "297mm";
         
-        const { jsPDF } = window.jspdf;
+        ctrls.style.display = 'none'; 
+        window.scrollTo(0,0);
 
-        html2canvas(paper, {scale:2, useCORS: true}).then(c => {
-            const img = c.toDataURL('image/png');
-            const doc = new jsPDF('p', 'mm', [210, c.height*210/c.width]);
-            doc.addImage(img, 'PNG', 0, 0, 210, c.height*210/c.width);
-            doc.save(f);
+        // Wait for style apply
+        setTimeout(() => {
+            if (!window.jspdf) { 
+                alert("Error: PDF Library not loaded."); 
+                ctrls.style.display = 'flex'; btn.innerText=originalText; btn.disabled=false;
+                return;
+            }
             
-            // Increment
-            const cur = document.getElementById('invNo').value;
-            const typ = document.getElementById('docType').value;
-            let isNew = false;
-            if(typ==='INVOICE' && cur==liveInvNo) isNew=true;
-            if(typ==='QUOTATION' && cur==liveQtNo) isNew=true;
-            if(isNew && db) { db.ref('counters/'+(typ==='INVOICE'?'invoice':'quotation')).transaction(v => (v||0)+1); }
-            else if(isNew) { if(typ==='INVOICE'){ liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); } updateDocNoDisplay(); }
+            const { jsPDF } = window.jspdf;
             
-            ctrls.style.display = 'flex';
-        }).catch(err => {
-            alert("PDF Error: " + err.message);
-            ctrls.style.display = 'flex';
-        });
+            html2canvas(paper, {scale:2, useCORS: true}).then(c => {
+                const img = c.toDataURL('image/png');
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210; 
+                const pageHeight = 297; 
+                const imgHeight = c.height * imgWidth / c.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                doc.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight;
+                    doc.addPage();
+                    doc.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                doc.save(f);
+                
+                const cur = document.getElementById('invNo').value;
+                const typ = document.getElementById('docType').value;
+                let isNew = false;
+                if(typ==='INVOICE' && cur==liveInvNo) isNew=true;
+                if(typ==='QUOTATION' && cur==liveQtNo) isNew=true;
+                if(isNew && db) { db.ref('counters/'+(typ==='INVOICE'?'invoice':'quotation')).transaction(v => (v||0)+1); }
+                else if(isNew) { if(typ==='INVOICE'){ liveInvNo++; localStorage.setItem('lastInvNo', liveInvNo); } else { liveQtNo++; localStorage.setItem('lastQtNo', liveQtNo); } updateDocNoDisplay(); }
+                
+                if (originalStyle) paper.setAttribute("style", originalStyle);
+                else paper.removeAttribute("style");
+                
+                ctrls.style.display = 'flex';
+                btn.innerText = originalText;
+                btn.disabled = false;
+
+            }).catch(err => {
+                alert("PDF Error: " + err.message);
+                if (originalStyle) paper.setAttribute("style", originalStyle);
+                else paper.removeAttribute("style");
+                ctrls.style.display = 'flex';
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
+        }, 100);
     }
 
     function exportExcel() { const d = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ]; const i = getItemsFromDOM(); i.forEach(x => { if(x.type === 'item') d.push([x.desc, x.qty, x.price, x.qty*x.price]); else d.push([" - " + x.desc]); }); const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(d); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx"); }
