@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#333333">
+    <title>Corals Invoice System</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* --- APP STYLING --- */
+        body { font-family: 'Helvetica', sans-serif; background: #f0f2f5; margin: 0; padding-bottom: 80px; }
+        .app-bar { background: #333; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        .editor-section { padding: 15px; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        
+        h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        label { display: block; font-size: 12px; color: #666; margin-top: 10px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; }
+        
+        /* Logistics & Discount Box */
+        #logistics-box, #discount-box { background: #e3f2fd; padding: 10px; border: 1px solid #90caf9; border-radius: 4px; margin-top: 10px; display:none; }
+        #discount-box { background: #fff3cd; border-color: #ffeeba; } 
+        .flex-row { display: flex; gap: 10px; margin-bottom: 5px; }
+        
+        /* Time Container Styling */
+        #timeContainer input { margin-bottom: 5px; }
+        .time-controls { display:inline-block; margin-left: 10px; }
+        .btn-mini { padding: 2px 8px; font-size: 12px; border-radius: 4px; border:none; color:white; cursor:pointer; margin-left:2px; }
+        .btn-mini-green { background: #28a745; }
+        .btn-mini-red { background: #dc3545; }
+
+        /* Row Styles */
+        .row-inputs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; border-left: 3px solid #007bff; padding-left: 5px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .i-desc { width: 100%; } 
+        .i-remark { flex: 2; min-width: 120px; } 
+        .i-qty { flex: 1; min-width: 50px; }
+        .i-price { flex: 1; min-width: 60px; }
+        
+        .row-menu { display: flex; gap: 5px; margin-bottom: 5px; margin-left: 20px; border-left: 3px solid #17a2b8; padding-left: 5px; }
+        .row-menu input { background: #f9f9f9; border: 1px dashed #ccc; }
+
+        /* Buttons */
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { padding: 12px; border: none; border-radius: 5px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn-primary { background: #007bff; }
+        .btn-info { background: #17a2b8; } 
+        .btn-success { background: #28a745; }
+        .btn-warning { background: #ffc107; color: black; } 
+        .btn-danger { background: #dc3545; }
+        .btn-dark { background: #343a40; }
+        
+        /* Floating UI */
+        .settings-fab { position: fixed; bottom: 20px; left: 20px; background: #444; color: white; padding: 15px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: none; font-weight: bold; z-index: 999; width: auto; cursor: pointer; }
+        .btn-back-floating { display: none; position: fixed; top: 20px; left: 20px; background: #dc3545; color: white; padding: 12px 25px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 2px solid white; font-weight: bold; z-index: 2000; cursor: pointer; font-size: 14px; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; overflow-y: auto; }
+        .modal-content { background: white; width: 85%; max-width: 500px; margin: 5% auto; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        
+        /* --- PDF PREVIEW STYLING --- */
+        #invoice-paper { width: 210mm; min-height: 297mm; height: auto; background: white; margin: 20px auto; padding: 15mm; box-shadow: 0 0 15px rgba(0,0,0,0.2); box-sizing: border-box; position: relative; color: #000; display: none; }
+        
+        .header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .logo-area { width: 120px; height: 120px; text-align: center; }
+        .logo-img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; border: 2px dotted #333; padding: 5px; }
+        .company-details { text-align: right; font-size: 14px; line-height: 1.4; }
+        .reg-header { font-size: 11px; font-weight: bold; margin-bottom: 5px; display: block; }
+
+        .client-box { border: 1px solid #333; padding: 10px; width: 55%; font-size: 14px; margin-bottom: 10px; }
+        .meta-table { float: right; width: 40%; border-collapse: collapse; margin-bottom: 10px; }
+        .meta-table td { border: 1px solid #ccc; padding: 5px; font-size: 12px; }
+
+        .event-info-box { clear: both; border: 1px solid #ccc; background: #f9f9f9; padding: 10px; margin-bottom: 20px; font-size: 13px; display: flex; justify-content: space-between; }
+        .event-col { width: 32%; }
+        
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        .item-table th { background: #eee; border: 1px solid #333; padding: 8px; text-align: left; }
+        .item-table td { border: 1px solid #333; padding: 8px; vertical-align: top; }
+        
+        .totals-section { width: 100%; margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .words-container { width: 60%; font-size: 12px; font-style: italic; padding-right: 20px; display: flex; align-items: flex-start; }
+        .lbl-ringgit { font-weight: bold; white-space: nowrap; margin-right: 5px; }
+        .val-words { flex: 1; word-wrap: break-word; }
+        .numbers-container { width: 35%; }
+        .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+        .bold { font-weight: bold; }
+        
+        .terms-section { margin-top: 40px; font-size: 11px; clear: both; }
+        .bank-details { width: 100%; margin-bottom: 20px; }
+        .qr-section { width: 200px; text-align: center; border: 2px solid #005EB8; border-radius: 10px; padding: 10px; background: #fff; margin-top: 10px; }
+        .qr-img { width: 120px; height: 120px; object-fit: contain; }
+    </style>
+</head>
+<body>
+
+<div class="app-bar">
+    <h2>Corals Invoice System</h2>
+</div>
+
+<button id="backBtn" class="btn-back-floating" onclick="togglePreview()">← BACK TO EDIT</button>
+
+<div class="editor-section" id="editorUI">
+    <div class="card">
+        <h3>1. Details</h3>
+        <label>Document Type</label>
+        <select id="docType" onchange="updateDocNo()"><option>INVOICE</option><option>QUOTATION</option></select>
+        <div class="row-inputs" style="border:none; padding:0;">
+            <label>Auto-Generated No.</label>
+            <input id="invNo" placeholder="Loading..." readonly style="background:#eee;">
+            <input id="invDate" type="date">
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>2. Client Info</h3>
+        <label>Customer Name (AUTO UPPERCASE)</label>
+        <input id="clientName" placeholder="CLIENT NAME" oninput="this.value = this.value.toUpperCase()">
+        
+        <label>Address</label>
+        <textarea id="clientAddress" rows="2" placeholder="Client Address"></textarea>
+
+        <div class="flex-row">
+            <div style="flex:1">
+                <label>Contact No.</label>
+                <input id="clientContact" type="text" placeholder="Digits Only">
+            </div>
+            <div style="flex:1">
+                <label>Contact Person Name</label>
+                <input id="contactPerson" placeholder="Name">
+            </div>
+        </div>
+
+        <label>Date of Event</label>
+        <input id="eventDate" type="date">
+
+        <label>
+            Time(s) of Event 
+            <div class="time-controls">
+                <button class="btn-mini btn-mini-green" onclick="addTimeInput()">+</button>
+                <button class="btn-mini btn-mini-red" onclick="removeTimeInput()">-</button>
+            </div>
+        </label>
+        <div id="timeContainer"></div>
+
+        <label>Delivery Method</label>
+        <select id="deliveryMethod" onchange="toggleLogistics()">
+            <option value="Delivery">Delivery</option>
+            <option value="Self Pick Up">Self Pick Up</option>
+            <option value="Set Up">Set Up</option>
+        </select>
+        
+        <div id="logistics-box">
+            <div class="flex-row">
+                <div style="flex:1">
+                    <label id="logQtyLabel">Qty (Trips)</label>
+                    <input id="logQty" type="number" value="1">
+                </div>
+                <div style="flex:1">
+                    <label>Price (RM)</label>
+                    <input id="logPrice" type="number" placeholder="0.00">
+                </div>
+            </div>
+            <div id="setupFeeRow" class="flex-row" style="margin-top:10px; display:none;">
+                <div style="flex:1">
+                    <label>Qty (Set Up)</label>
+                    <input id="setupQty" type="number" value="1">
+                </div>
+                <div style="flex:1">
+                    <label>Price (RM)</label>
+                    <input id="setupPrice" type="number" placeholder="0.00">
+                </div>
+            </div>
+        </div>
+
+        <label>Global Remark(s)</label>
+        <input id="invRemarks" placeholder="Any special notes...">
+    </div>
+
+    <div class="card">
+        <h3>3. Items</h3>
+        <div id="items-container"></div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="addItemRow()">+ Add Item</button>
+            <button class="btn btn-info" onclick="addMenuRow()">+ Add Menu</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3><input type="checkbox" id="chkDiscount" onchange="toggleDiscount()"> Add Discount / Waive</h3>
+        <div id="discount-box">
+            <label style="color:#856404;">1. Apply Discount</label>
+            <div class="flex-row">
+                <select id="discType" style="flex:1" onchange="updateDiscPlaceholder()">
+                    <option value="percent">Percent (%)</option>
+                    <option value="rm">Fixed (RM)</option>
+                </select>
+                <input id="discVal" type="number" placeholder="%" style="flex:1">
+            </div>
+            <label>On Target:</label>
+            <select id="discTarget">
+                <option value="food">Food Cost (Items Only)</option>
+                <option value="total">Grand Total (Items + Delivery)</option>
+                <option value="transport">Transport Only</option>
+            </select>
+            <hr style="border:1px dashed #ccc; margin:10px 0;">
+            <label style="color:#856404;">2. Waive Fees</label>
+            <select id="waiveTarget">
+                <option value="none">-- None --</option>
+                <option value="transport">Waive Transport Fee</option>
+                <option value="setup">Waive Set Up Fee</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>5. Actions</h3>
+        <div class="btn-group">
+            <button class="btn btn-success" onclick="convertAndSend()">Convert PDF and Send</button>
+            <button class="btn btn-warning" style="background:#ffc107; color:black;" onclick="clearForm()">Clear Form</button>
+            <button class="btn btn-dark" onclick="exportExcel()">Export to Excel</button>
+        </div>
+        <br>
+        <button class="btn btn-dark" style="background:#555;" onclick="togglePreview()">Toggle Preview</button>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="text-align:center;">Company Settings</h3>
+        <label>Company Logo</label><input type="file" id="settingLogoInput" accept="image/*">
+        <label>Payment QR Code</label><input type="file" id="settingQRInput" accept="image/*">
+        <hr>
+        <label>Company Name</label><input id="setCompName" placeholder="CORALS CAFE">
+        <label>Registration No.</label><input id="setRegNo" placeholder="Co.Reg.No: ...">
+        <label>Address (Use &lt;br&gt; for new lines)</label><textarea id="setAddr" rows="3"></textarea>
+        <label>Contact Info</label><input id="setContact">
+        <hr>
+        <label>Bank Name</label><input id="setBank">
+        <label>Account No.</label><input id="setAcc">
+        <label>Payable To</label><input id="setPayable">
+        <hr>
+        <label>Default Notes</label><textarea id="setNotes" rows="3"></textarea>
+        <div class="modal-buttons">
+            <button class="btn btn-warning" onclick="closeSettings()">Back</button>
+            <button class="btn btn-success" onclick="saveSettings()">Submit</button>
+        </div>
+    </div>
+</div>
+<button class="settings-fab" onclick="openSettings()">⚙ Settings</button>
+
+<div id="invoice-paper">
+    <div class="header-flex">
+        <div class="logo-area"><img id="printLogo" class="logo-img" alt="Logo"></div>
+        <div class="company-details">
+            <h2 style="margin:0;" id="dispCompName">CORALS CAFE</h2>
+            <span id="dispRegHeader" class="reg-header">(Co.Reg.No: ...)</span>
+            <p style="margin:5px 0;"><span id="dispAddr">Addr...</span><br><span id="dispContactInfo">Contact...</span></p>
+        </div>
+    </div>
+    <hr style="border: 1px solid #333;">
+    <div style="overflow: hidden; margin-top: 20px;">
+        <div style="overflow:hidden;">
+            <div class="client-box" style="float:left;">
+                <strong>Bill To:</strong><br><span id="dispClientName">Client</span><br>
+                <span id="dispClientAddr">Address...</span><br>
+                <span style="font-size:12px; color:#444;">Contact: <span id="dispContact"></span></span>
+            </div>
+            <table class="meta-table">
+                <tr><td style="background:#eee; font-weight:bold;" id="lblDocNo">INVOICE NO.</td><td id="dispInvNo">0000</td></tr>
+                <tr><td style="background:#eee; font-weight:bold;">DATE</td><td id="dispDate">DD/MM/YYYY</td></tr>
+            </table>
+        </div>
+        <div class="event-info-box">
+            <div class="event-col"><strong>Date of Event:</strong><br><span id="dispEventDate">-</span></div>
+            <div class="event-col"><strong>Time:</strong><br><span id="dispEventTime">-</span></div>
+            <div class="event-col"><strong>Method:</strong><br><span id="dispMethod">-</span></div>
+        </div>
+    </div>
+    <table class="item-table">
+        <thead><tr><th width="5%">No</th><th width="45%">Description</th><th width="15%">Qty</th><th width="15%">Unit Price (RM)</th><th width="20%">Amount (RM)</th></tr></thead>
+        <tbody id="printItemsBody"></tbody>
+    </table>
+    <div style="margin-top:10px; font-size:12px;"><strong>Global Remark(s):</strong> <span id="dispRemarks"></span></div>
+    <div class="totals-section">
+        <div class="words-container"><span class="lbl-ringgit">Ringgit M'sia</span><span class="val-words" id="dispWords">Zero ONLY</span></div>
+        <div class="numbers-container">
+            <div class="totals-row"><span>Subtotal:</span> <span>RM <span id="dispSub">0.00</span></span></div>
+            <div class="totals-row" id="rowDiscount" style="display:none; color:red;"><span>Discount / Waive:</span> <span>- RM <span id="dispDisc">0.00</span></span></div>
+            <div class="totals-row bold" style="border-top:2px solid #333; padding-top:5px;"><span>Total:</span> <span>RM <span id="dispTotal">0.00</span></span></div>
+        </div>
+    </div>
+    <div class="terms-section">
+        <div class="bank-details">
+            <p><strong>NOTES:</strong><br><span id="dispNotes">Notes...</span></p>
+            <p style="border:1px solid #ccc; padding:10px;">
+                <strong>BANK DETAILS:</strong><br>Bank: <span id="dispBank">...</span><br>Acc: <span id="dispAcc">...</span><br>Payable To: <span id="dispPayable">...</span><br>
+                <small id="dispRegFooter">Co.Reg...</small>
+            </p>
+            <div class="qr-section">
+                <div style="background:#005EB8; color:white; font-weight:bold; margin-bottom:5px;">WE PREFER</div>
+                <img id="printQR" class="qr-img" src="" alt="TnG QR">
+                <div style="font-size:10px; margin-top:5px;">Scan to Pay</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* --- 1. INITIALIZATION & CONFIG --- */
+    const DEFAULT_COMP = {
+        name: "CORALS CAFE", reg: "(Co.Reg.No: 002632312-V)",
+        addr: "No. 42-G, Sierra Zentro 1, Jalan Sierra 10/2<br>Bandar 16 Sierra, 47120 Puchong, Selangor.",
+        contact: "+6012-236 5895 | coralscafe@gmail.com",
+        bank: "MAYBANK", acc: "514 833 414 938", payable: "CORALS CAFE",
+        notes: "1. Full payment must be made upon issuance.<br>2. Interest of 1.5% charged on overdue accounts."
+    };
+
+    // START NUMBERS
+    const START_INV = 1771;
+    const START_QT = 238;
+
+    window.onload = function() {
+        if('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+        addItemRow(); 
+        loadSavedSettings();
+        resetDates();
+        addTimeInput(); 
+        toggleLogistics(); 
+        updateDocNo(); 
+    };
+
+    /* --- 2. NUMBERING LOGIC --- */
+    function getNextNumber(type) {
+        let key = type === 'INVOICE' ? 'lastInvNo' : 'lastQtNo';
+        let start = type === 'INVOICE' ? START_INV : START_QT;
+        let current = parseInt(localStorage.getItem(key)) || (start - 1); 
+        return current + 1;
+    }
+
+    function updateDocNo() {
+        const type = document.getElementById('docType').value;
+        const nextNum = getNextNumber(type);
+        document.getElementById('invNo').value = nextNum;
+    }
+
+    function incrementAndSaveNumber() {
+        const type = document.getElementById('docType').value;
+        const key = type === 'INVOICE' ? 'lastInvNo' : 'lastQtNo';
+        const currentNext = getNextNumber(type);
+        localStorage.setItem(key, currentNext); 
+        updateDocNo(); 
+    }
+
+    /* --- 3. FILE NAME GENERATOR --- */
+    function getFilename() {
+        const type = document.getElementById('docType').value;
+        const no = document.getElementById('invNo').value;
+        const client = document.getElementById('clientName').value || "CLIENT";
+        if (type === 'INVOICE') {
+            return `CCIR-${no} - ${client}.pdf`;
+        } else {
+            return `CEQ${no} - ${client}.pdf`;
+        }
+    }
+
+    /* --- 4. SEND & SAVE LOGIC --- */
+    function convertAndSend() {
+        updatePreviewData(); 
+        const element = document.getElementById('invoice-paper');
+        const backBtn = document.getElementById('backBtn');
+        const filename = getFilename();
+
+        element.style.display = 'block'; 
+        document.getElementById('editorUI').style.display = 'none'; 
+        backBtn.style.display = 'none';
+
+        html2canvas(element, { scale: 2 }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const imgWidth = 210; 
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            const doc = new jsPDF('p', 'mm', [imgWidth, imgHeight]);
+            
+            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            doc.save(filename); 
+
+            incrementAndSaveNumber();
+
+            element.style.display = 'none';
+            document.getElementById('editorUI').style.display = 'block';
+            
+            const text = `Hi, please find the attached ${filename}.`;
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        });
+    }
+
+    /* --- 5. UTILITIES --- */
+    function resetDates() {
+        document.getElementById('invDate').valueAsDate = new Date();
+        document.getElementById('eventDate').valueAsDate = new Date();
+    }
+    function formatTime12hr(timeStr) {
+        if (!timeStr) return "";
+        let [h, m] = timeStr.split(":");
+        let ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12; h = h ? h : 12; 
+        return `${h}:${m} ${ampm}`;
+    }
+    function formatSentenceCase(el) {
+        if(!el.value) return;
+        el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1).toLowerCase();
+    }
+    function numToWords(n) {
+        const a = ['','one ','two ','three ','four ','five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
+        const b = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+        if ((n = n.toString()).length > 9) return 'overflow';
+        let n_array = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n_array) return; 
+        let str = '';
+        str += (n_array[1] != 0) ? (a[Number(n_array[1])] || b[n_array[1][0]] + ' ' + a[n_array[1][1]]) + 'crore ' : '';
+        str += (n_array[2] != 0) ? (a[Number(n_array[2])] || b[n_array[2][0]] + ' ' + a[n_array[2][1]]) + 'lakh ' : '';
+        str += (n_array[3] != 0) ? (a[Number(n_array[3])] || b[n_array[3][0]] + ' ' + a[n_array[3][1]]) + 'thousand ' : '';
+        str += (n_array[4] != 0) ? (a[Number(n_array[4])] || b[n_array[4][0]] + ' ' + a[n_array[4][1]]) + 'hundred ' : '';
+        str += (n_array[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_array[5])] || b[n_array[5][0]] + ' ' + a[n_array[5][1]]) : '';
+        return str.trim();
+    }
+    function getMoneyText(total) {
+        let s = total.toString();
+        let parts = s.split(".");
+        let ringgit = parseInt(parts[0]);
+        let sen = parts.length > 1 ? parseInt(parts[1].padEnd(2,'0').substring(0,2)) : 0;
+        let text = numToWords(ringgit) + " ";
+        if(sen > 0) text += "and " + numToWords(sen) + " sen";
+        text = text.trim() + " ONLY";
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    /* --- 6. LOGISTICS & ITEMS --- */
+    function addTimeInput(val = "") {
+        const container = document.getElementById('timeContainer');
+        const input = document.createElement('input');
+        input.type = 'time'; input.className = 'evt-time-input'; input.value = val; input.style.width = "100%";
+        container.appendChild(input);
+    }
+    function removeTimeInput() {
+        const container = document.getElementById('timeContainer');
+        if(container.children.length > 1) container.removeChild(container.lastChild);
+    }
+    function getAllTimeStrings() {
+        const inputs = document.querySelectorAll('.evt-time-input');
+        const times = [];
+        inputs.forEach(inp => { if(inp.value) times.push(formatTime12hr(inp.value)); });
+        return times.length > 0 ? times.join(" & ") : "-";
+    }
+    function toggleLogistics() {
+        const method = document.getElementById('deliveryMethod').value;
+        const box = document.getElementById('logistics-box');
+        const setupRow = document.getElementById('setupFeeRow');
+        if (method === 'Self Pick Up') {
+            box.style.display = 'none';
+        } else {
+            box.style.display = 'block';
+            document.getElementById('logQtyLabel').innerText = (method === 'Delivery') ? "Qty (TRIPS)" : "Qty (Transport)";
+            setupRow.style.display = (method === 'Set Up') ? "flex" : "none";
+        }
+    }
+    function toggleDiscount() { document.getElementById('discount-box').style.display = document.getElementById('chkDiscount').checked ? "block" : "none"; }
+    function updateDiscPlaceholder() { document.getElementById('discVal').placeholder = (document.getElementById('discType').value === 'percent') ? "%" : "RM"; }
+    
+    function addItemRow() {
+        const id = Date.now();
+        const div = document.createElement('div');
+        div.className = 'row-inputs'; div.setAttribute('data-type', 'item'); div.id = `row-${id}`;
+        div.innerHTML = `<input placeholder="ITEM NAME (AUTO CAPS)" class="i-desc" oninput="this.value = this.value.toUpperCase()"><input placeholder="Remark(s) - Sentence Case" class="i-remark" onchange="formatSentenceCase(this)"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button>`;
+        document.getElementById('items-container').appendChild(div);
+    }
+    function addMenuRow() {
+        const container = document.getElementById('items-container');
+        let hasItem = false;
+        for(let i=0; i<container.children.length; i++) { if(container.children[i].getAttribute('data-type') === 'item') hasItem = true; }
+        if (!hasItem) { alert("Please add an Item first."); return; }
+        const id = Date.now();
+        const div = document.createElement('div');
+        div.className = 'row-menu'; div.setAttribute('data-type', 'menu'); div.id = `row-${id}`;
+        div.innerHTML = `<span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail (Sentence Case)" class="i-desc" onchange="formatSentenceCase(this)"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button>`;
+        document.getElementById('items-container').appendChild(div);
+    }
+    function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
+
+    function clearForm() {
+        if(!confirm("Clear all fields?")) return;
+        document.querySelectorAll('input, textarea').forEach(i => i.value = '');
+        document.getElementById('items-container').innerHTML = '';
+        document.getElementById('logQty').value = "1"; document.getElementById('setupQty').value = "1";
+        document.getElementById('timeContainer').innerHTML = ''; addTimeInput();
+        addItemRow(); resetDates(); loadSavedSettings(); updateDocNo();
+    }
+
+    /* --- 7. SETTINGS & PREVIEW --- */
+    function openSettings() { 
+        document.getElementById('settingsModal').style.display = 'block'; 
+        const s = JSON.parse(localStorage.getItem('compSettings')) || DEFAULT_COMP;
+        document.getElementById('setCompName').value = s.name; document.getElementById('setRegNo').value = s.reg;
+        document.getElementById('setAddr').value = s.addr.replace(/<br>/g, '\n'); document.getElementById('setContact').value = s.contact;
+        document.getElementById('setBank').value = s.bank; document.getElementById('setAcc').value = s.acc; document.getElementById('setPayable').value = s.payable;
+        document.getElementById('setNotes').value = s.notes.replace(/<br>/g, '\n');
+    }
+    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+    function saveSettings() {
+        const s = {
+            name: document.getElementById('setCompName').value, reg: document.getElementById('setRegNo').value,
+            addr: document.getElementById('setAddr').value.replace(/\n/g, '<br>'), contact: document.getElementById('setContact').value,
+            bank: document.getElementById('setBank').value, acc: document.getElementById('setAcc').value, payable: document.getElementById('setPayable').value,
+            notes: document.getElementById('setNotes').value.replace(/\n/g, '<br>')
+        };
+        localStorage.setItem('compSettings', JSON.stringify(s));
+        const lIn = document.getElementById('settingLogoInput'); const qIn = document.getElementById('settingQRInput');
+        const saveImg = (input, key) => { if(input.files[0]) { const r = new FileReader(); r.onload = (e) => { localStorage.setItem(key, e.target.result); loadSavedSettings(); }; r.readAsDataURL(input.files[0]); }};
+        saveImg(lIn, 'companyLogo'); saveImg(qIn, 'paymentQR');
+        alert("Settings Saved!"); loadSavedSettings(); closeSettings();
+    }
+    function loadSavedSettings() {
+        const s = JSON.parse(localStorage.getItem('compSettings')) || DEFAULT_COMP;
+        document.getElementById('dispCompName').innerText = s.name; document.getElementById('dispRegHeader').innerText = s.reg;
+        document.getElementById('dispAddr').innerHTML = s.addr; document.getElementById('dispContactInfo').innerText = s.contact;
+        document.getElementById('dispBank').innerText = s.bank; document.getElementById('dispAcc').innerText = s.acc;
+        document.getElementById('dispPayable').innerText = s.payable; document.getElementById('dispRegFooter').innerText = s.reg;
+        document.getElementById('dispNotes').innerHTML = s.notes;
+        const logo = localStorage.getItem('companyLogo'); if(logo) document.getElementById('printLogo').src = logo;
+        const qr = localStorage.getItem('paymentQR'); if(qr) document.getElementById('printQR').src = qr;
+    }
+
+    function getItemsFromDOM() {
+        const container = document.getElementById('items-container');
+        const data = [];
+        for (let i = 0; i < container.children.length; i++) {
+            const row = container.children[i]; const type = row.getAttribute('data-type');
+            if(type === 'item') {
+                data.push({ type: 'item', desc: row.querySelector('.i-desc').value, remark: row.querySelector('.i-remark').value, 
+                    qty: parseFloat(row.querySelector('.i-qty').value) || 0, price: parseFloat(row.querySelector('.i-price').value) || 0, isLogistics: false });
+            } else if (type === 'menu') { data.push({ type: 'menu', desc: row.querySelector('.i-desc').value }); }
+        }
+        const method = document.getElementById('deliveryMethod').value;
+        const logQty = parseFloat(document.getElementById('logQty').value) || 0; const logPrice = parseFloat(document.getElementById('logPrice').value) || 0;
+        const setupQty = parseFloat(document.getElementById('setupQty').value) || 0; const setupPrice = parseFloat(document.getElementById('setupPrice').value) || 0;
+        if (method === 'Delivery') { data.push({ type: 'item', desc: 'DELIVERY', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' }); } 
+        else if (method === 'Set Up') {
+            data.push({ type: 'item', desc: 'TRANSPORT STANDARD', remark: '-All within Klang Valley', qty: logQty, price: logPrice, isLogistics: true, subType: 'transport' });
+            data.push({ type: 'item', desc: 'SET UP', remark: "-Inclusive of (2) attendants for 3 hour(s), subsequent hour would be RM30/pax.\n-Set up & tear down for decorations", qty: setupQty, price: setupPrice, isLogistics: true, subType: 'setup' });
+        } else if (method === 'Self Pick Up') { data.push({ type: 'item', desc: 'SELF PICK UP', remark: '', qty: 0, price: 0, isLogistics: true }); }
+        return data;
+    }
+
+    function updatePreviewData() {
+        document.getElementById('dispClientName').innerText = document.getElementById('clientName').value;
+        document.getElementById('dispClientAddr').innerText = document.getElementById('clientAddress').value;
+        document.getElementById('dispInvNo').innerText = document.getElementById('invNo').value;
+        document.getElementById('dispDate').innerText = document.getElementById('invDate').value;
+        const cNum = document.getElementById('clientContact').value; const cName = document.getElementById('contactPerson').value;
+        document.getElementById('dispContact').innerText = cName ? `${cNum} (${cName})` : cNum;
+        document.getElementById('dispEventDate').innerText = document.getElementById('eventDate').value;
+        document.getElementById('dispEventTime').innerText = getAllTimeStrings();
+        document.getElementById('dispMethod').innerText = document.getElementById('deliveryMethod').value;
+        document.getElementById('dispRemarks').innerText = document.getElementById('invRemarks').value;
+        document.getElementById('lblDocNo').innerText = (document.getElementById('docType').value === 'INVOICE') ? "INVOICE NO." : "QUOTE NO.";
+
+        const tbody = document.getElementById('printItemsBody'); tbody.innerHTML = '';
+        const items = getItemsFromDOM();
+        let foodCost = 0, transportCost = 0, grandTotal = 0, count = 0;
+
+        items.forEach(item => {
+            if(item.type === 'item') {
+                count++; let total = item.qty * item.price;
+                if(item.isLogistics) transportCost += total; else foodCost += total;
+                grandTotal += total;
+                let descHtml = item.desc;
+                if(item.remark) descHtml += `<br><small style="color:#444; font-size:11px;">${item.remark.replace(/\n/g,'<br>')}</small>`;
+                let pDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + item.price.toFixed(2);
+                let tDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + total.toFixed(2);
+                let qDisp = (item.desc === 'SELF PICK UP') ? '-' : item.qty;
+                tbody.innerHTML += `<tr><td style="font-weight:bold;">${count}</td><td style="font-weight:bold;">${descHtml}</td><td>${qDisp}</td><td>${pDisp}</td><td>${tDisp}</td></tr>`;
+            } else { tbody.innerHTML += `<tr><td></td><td style="padding-left:20px; font-style:italic;">- ${item.desc}</td><td></td><td></td><td></td></tr>`; }
+        });
+
+        let discountAmount = 0;
+        if(document.getElementById('chkDiscount').checked) {
+            const discType = document.getElementById('discType').value; const discVal = parseFloat(document.getElementById('discVal').value) || 0;
+            const target = document.getElementById('discTarget').value;
+            let baseAmount = (target === 'food') ? foodCost : (target === 'transport') ? transportCost : grandTotal;
+            discountAmount = (discType === 'percent') ? baseAmount * (discVal / 100) : discVal;
+            const waive = document.getElementById('waiveTarget').value;
+            if(waive !== 'none') { items.forEach(i => { if(i.isLogistics && i.subType === waive) discountAmount += (i.qty * i.price); }); }
+        }
+        let finalTotal = Math.max(0, grandTotal - discountAmount);
+        document.getElementById('dispSub').innerText = grandTotal.toFixed(2);
+        const rowDisc = document.getElementById('rowDiscount');
+        if(discountAmount > 0) { rowDisc.style.display = 'flex'; document.getElementById('dispDisc').innerText = discountAmount.toFixed(2); } else { rowDisc.style.display = 'none'; }
+        document.getElementById('dispTotal').innerText = finalTotal.toFixed(2);
+        document.getElementById('dispWords').innerText = getMoneyText(finalTotal.toFixed(2));
+    }
+
+    function togglePreview() {
+        updatePreviewData(); const paper = document.getElementById('invoice-paper'); const ui = document.getElementById('editorUI'); const backBtn = document.getElementById('backBtn');
+        if(paper.style.display === 'none' || paper.style.display === '') { paper.style.display = 'block'; ui.style.display = 'none'; backBtn.style.display = 'block'; window.scrollTo(0,0); } 
+        else { paper.style.display = 'none'; ui.style.display = 'block'; backBtn.style.display = 'none'; }
+    }
+
+    function exportExcel() {
+        const wb = XLSX.utils.book_new();
+        const data = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Contact", document.getElementById('clientContact').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Type", "Description", "Note", "Qty", "Price", "Total"] ];
+        getItemsFromDOM().forEach(i => { if(i.type === 'item') data.push(["Item", i.desc, i.remark, i.qty, i.price, i.qty*i.price]); else data.push(["Menu", " - " + i.desc]); });
+        const ws = XLSX.utils.aoa_to_sheet(data); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, `Corals_Data.xlsx`);
+    }
+</script>
+</body>
+</html>

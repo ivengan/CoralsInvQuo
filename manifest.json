@@ -1,0 +1,15 @@
+{
+  "name": "Corals Invoice System",
+  "short_name": "CoralsInv",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#333333",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2910/2910768.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
