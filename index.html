@@ -572,7 +572,7 @@
         const paper = document.getElementById('invoice-paper');
         const ctrls = document.getElementById('preview-controls');
         const btn = document.getElementById('btnConvert');
-        const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
+        const f = (document.getElementById('docType').value==='INVOICE') ? \`CCIR-\${document.getElementById('invNo').value} - \${document.getElementById('clientName').value}.pdf\` : \`CEQ\${document.getElementById('invNo').value} - \${document.getElementById('clientName').value}.pdf\`;
         
         const originalText = btn.innerText;
         btn.innerText = "Generating...";
@@ -597,6 +597,27 @@
                 return;
             }
             
+            // --- PAGE BREAK LOGIC ---
+            const termsSection = document.querySelector('.terms-section');
+            const originalTermsMargin = termsSection.style.marginTop;
+            termsSection.style.marginTop = '40px'; 
+            
+            const pxPerMm = paper.offsetWidth / 210;
+            const pageHeightPx = 297 * pxPerMm;
+            
+            const termsTop = termsSection.offsetTop;
+            const termsBottom = termsTop + termsSection.offsetHeight;
+            
+            const pageIndexTop = Math.floor(termsTop / pageHeightPx);
+            const pageIndexBottom = Math.floor(termsBottom / pageHeightPx);
+            
+            if (pageIndexTop !== pageIndexBottom) {
+                const targetTop = (pageIndexTop + 1) * pageHeightPx;
+                const marginToAdd = targetTop - termsTop + 40 + 20;
+                termsSection.style.marginTop = marginToAdd + 'px';
+            }
+            // ------------------------
+
             const { jsPDF } = window.jspdf;
             
             html2canvas(paper, {scale:2, useCORS: true}).then(c => {
@@ -632,6 +653,7 @@
                 // Restore UI
                 if (originalStyle) paper.setAttribute("style", originalStyle);
                 else paper.removeAttribute("style");
+                termsSection.style.marginTop = originalTermsMargin;
                 
                 ctrls.style.display = 'flex';
                 btn.innerText = originalText;
@@ -640,6 +662,7 @@
                 alert("PDF Error: " + err.message);
                 if (originalStyle) paper.setAttribute("style", originalStyle);
                 else paper.removeAttribute("style");
+                termsSection.style.marginTop = originalTermsMargin;
                 ctrls.style.display = 'flex';
                 btn.innerText = originalText;
                 btn.disabled = false;
