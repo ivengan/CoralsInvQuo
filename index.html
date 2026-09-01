@@ -42,6 +42,10 @@
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; overflow-y: auto; }
         .modal-content { background: white; width: 85%; max-width: 500px; margin: 5% auto; padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .list-item-box { padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; user-select: none; -webkit-user-select: none; position: relative; }
+        .list-item-box.editing { padding: 5px; background: #e9ecef; }
+        .list-item-input { width: 100%; border: none; background: transparent; font-size: 16px; outline: none; padding: 5px; margin: 0; box-sizing: border-box; }
+        .list-delete-confirm { display:flex; justify-content:space-between; align-items:center; background:#f8d7da; color:#721c24; padding:10px; border-radius:5px; margin-top:5px; font-size:14px; border: 1px solid #f5c6cb; }
         
         /* --- PREVIEW WRAPPER --- */
         #preview-wrapper { 
@@ -204,6 +208,7 @@
 <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
         <h3>Settings</h3>
+        <button class="btn btn-info" onclick="openMenuUpdate()">Menu Update</button>
         <label>Logo</label><input type="file" id="settingLogoInput" accept="image/*">
         <label>QR</label><input type="file" id="settingQRInput" accept="image/*">
         <hr><label>Name</label><input id="setCompName"><label>Reg No</label><input id="setRegNo"><label>Addr</label><textarea id="setAddr" rows="3"></textarea><label>Contact</label><input id="setContact"><hr><label>Bank</label><input id="setBank"><label>Acc</label><input id="setAcc"><label>Payable</label><input id="setPayable"><hr><label>Notes</label><textarea id="setNotes" rows="3"></textarea>
@@ -211,6 +216,30 @@
     </div>
 </div>
 <button class="settings-fab" onclick="openSettings()">⚙</button>
+
+<div id="menuUpdateModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3>Menu Update</h3>
+        <button class="btn btn-primary" onclick="openListManage('services')">Type Of Services</button>
+        <button class="btn btn-primary" onclick="openListManage('menus')">MENUs</button>
+        <div class="modal-buttons">
+            <button class="btn btn-warning" onclick="closeMenuUpdate()">Back</button>
+        </div>
+    </div>
+</div>
+
+<div id="listManageModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 id="listManageTitle">Manage List</h3>
+        <button class="btn btn-success" style="margin-bottom:15px;" onclick="addListItem()">+ Add</button>
+        <div id="listManageContainer" style="max-height:300px; overflow-y:auto;">
+            <!-- list items go here -->
+        </div>
+        <div class="modal-buttons">
+            <button class="btn btn-warning" onclick="closeListManage()">Back</button>
+        </div>
+    </div>
+</div>
 
 <div id="preview-wrapper">
     <div id="invoice-paper">
@@ -257,6 +286,9 @@
 
     let db = null;
     let currentSettings = { name: "CORALS CAFE", reg: "", addr: "", contact: "", bank: "", acc: "", payable: "", notes: "", logo: "", qr: "" };
+    let listsData = { services: [], menus: [] };
+    let currentListType = '';
+    let longPressTimer;
     let liveInvNo = 1771, liveQtNo = 238;
 
     try { if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); } db = firebase.database(); } catch (e) { console.error(e); }
@@ -331,9 +363,11 @@
             st.innerText="DB: Connected"; st.style.background="#28a745";
             db.ref('settings').on('value', s => { if(s.val()) { currentSettings=s.val(); applySettingsToUI(s.val()); }});
             db.ref('counters').on('value', s => { if(s.val()) { liveInvNo=s.val().invoice||1771; liveQtNo=s.val().quotation||238; updateDocNoDisplay(); } else db.ref('counters').set({invoice:1771,quotation:238}); });
+            db.ref('lists').on('value', s => { if(s.val()) { listsData=s.val(); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; if(document.getElementById('listManageModal').style.display==='block') renderList(); }});
         } else {
             st.innerText="Mode: Local"; st.style.background="#dc3545";
             const s=localStorage.getItem('compSettings'); if(s) applySettingsToUI(JSON.parse(s));
+            const l=localStorage.getItem('compLists'); if(l) { listsData=JSON.parse(l); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; }
             liveInvNo=parseInt(localStorage.getItem('lastInvNo'))||1771; liveQtNo=parseInt(localStorage.getItem('lastQtNo'))||238; updateDocNoDisplay();
         }
     }
@@ -655,6 +689,126 @@
     function openSettings() { document.getElementById('settingsModal').style.display='block'; document.getElementById('setCompName').value=currentSettings.name; document.getElementById('setRegNo').value=currentSettings.reg; document.getElementById('setAddr').value=currentSettings.addr.replace(/<br>/g,'\n'); document.getElementById('setContact').value=currentSettings.contact; document.getElementById('setBank').value=currentSettings.bank; document.getElementById('setAcc').value=currentSettings.acc; document.getElementById('setPayable').value=currentSettings.payable; document.getElementById('setNotes').value=currentSettings.notes.replace(/<br>/g,'\n'); }
     function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
     async function saveSettings() { const rf=f=>new Promise(r=>{if(!f)return r(null);const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);}); const l=await rf(document.getElementById('settingLogoInput').files[0]); const q=await rf(document.getElementById('settingQRInput').files[0]); const s={name:document.getElementById('setCompName').value, reg:document.getElementById('setRegNo').value, addr:document.getElementById('setAddr').value.replace(/\n/g,'<br>'), contact:document.getElementById('setContact').value, bank:document.getElementById('setBank').value, acc:document.getElementById('setAcc').value, payable:document.getElementById('setPayable').value, notes:document.getElementById('setNotes').value.replace(/\n/g,'<br>'), logo:l||currentSettings.logo||"", qr:q||currentSettings.qr||""}; if(db) db.ref('settings').set(s); else { localStorage.setItem('compSettings',JSON.stringify(s)); currentSettings=s; applySettingsToUI(s); } alert("Saved!"); closeSettings(); }
+
+    // --- LIST MANAGEMENT ---
+    function openMenuUpdate() { closeSettings(); document.getElementById('menuUpdateModal').style.display='block'; }
+    function closeMenuUpdate() { document.getElementById('menuUpdateModal').style.display='none'; openSettings(); }
+    
+    function openListManage(type) {
+        currentListType = type;
+        document.getElementById('menuUpdateModal').style.display='none';
+        document.getElementById('listManageTitle').innerText = (type === 'services') ? 'Type Of Services' : 'MENUs';
+        document.getElementById('listManageModal').style.display='block';
+        renderList();
+    }
+    function closeListManage() { document.getElementById('listManageModal').style.display='none'; document.getElementById('menuUpdateModal').style.display='block'; }
+    
+    function saveLists() {
+        if(db) db.ref('lists').set(listsData);
+        else localStorage.setItem('compLists', JSON.stringify(listsData));
+    }
+    
+    function addListItem() {
+        const item = prompt("Enter new item:");
+        if(item && item.trim()) {
+            listsData[currentListType].push(item.trim());
+            saveLists();
+            renderList();
+        }
+    }
+    
+    function renderList() {
+        const c = document.getElementById('listManageContainer');
+        c.innerHTML = '';
+        const list = listsData[currentListType];
+        list.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'list-item-box';
+            div.innerText = item;
+            
+            div.oncontextmenu = function() { return false; };
+            
+            const startPress = (e) => { longPressTimer = setTimeout(() => enableEditMode(index), 2000); };
+            const cancelPress = () => { clearTimeout(longPressTimer); };
+            
+            div.addEventListener('touchstart', startPress, {passive: true});
+            div.addEventListener('touchend', cancelPress);
+            div.addEventListener('touchmove', cancelPress);
+            div.addEventListener('mousedown', startPress);
+            div.addEventListener('mouseup', cancelPress);
+            div.addEventListener('mouseleave', cancelPress);
+            
+            c.appendChild(div);
+        });
+    }
+    
+    window.confirmDelete = function(index) {
+        listsData[currentListType].splice(index, 1);
+        saveLists();
+        renderList();
+    };
+
+    function enableEditMode(index) {
+        const c = document.getElementById('listManageContainer');
+        const list = listsData[currentListType];
+        
+        c.innerHTML = ''; 
+        list.forEach((item, idx) => {
+            if(idx === index) {
+                const wrap = document.createElement('div');
+                
+                const div = document.createElement('div');
+                div.className = 'list-item-box editing';
+                
+                const inp = document.createElement('input');
+                inp.className = 'list-item-input';
+                inp.value = item;
+                
+                const checkDelete = () => {
+                    if(inp.value.trim() === '') {
+                        if(!document.getElementById('delConfirm-'+idx)) {
+                            const conf = document.createElement('div');
+                            conf.id = 'delConfirm-'+idx;
+                            conf.className = 'list-delete-confirm';
+                            conf.innerHTML = `<span>Delete item?</span> <button class="btn-mini btn-mini-red" onmousedown="confirmDelete(${idx}); event.preventDefault();">Confirm to delete</button>`;
+                            wrap.appendChild(conf);
+                        }
+                    } else {
+                        const conf = document.getElementById('delConfirm-'+idx);
+                        if(conf) conf.remove();
+                    }
+                };
+                
+                inp.addEventListener('input', checkDelete);
+                inp.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        if(inp.value.trim() !== '') {
+                            list[idx] = inp.value.trim();
+                            saveLists();
+                        }
+                        renderList();
+                    }, 150);
+                });
+                
+                div.appendChild(inp);
+                wrap.appendChild(div);
+                c.appendChild(wrap);
+                
+                setTimeout(() => {
+                    inp.focus();
+                    inp.setSelectionRange(inp.value.length, inp.value.length);
+                }, 10);
+                
+            } else {
+                const div = document.createElement('div');
+                div.className = 'list-item-box';
+                div.innerText = item;
+                c.appendChild(div);
+            }
+        });
+        
+        if(navigator.vibrate) navigator.vibrate(50);
+    }
 
 </script>
 </body>
