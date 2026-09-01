@@ -183,7 +183,7 @@
     <div class="card">
         <h3>4. Items</h3>
         <div id="items-container"></div>
-        <div class="btn-group"><button class="btn btn-primary" onclick="addItemRow()">+ Add Item</button><button class="btn btn-info" onclick="addMenuRow()">+ Add Menu</button></div>
+        <div class="btn-group"><button class="btn btn-primary" onclick="addItemRow()">+ Add Services</button><button class="btn btn-info" onclick="addMenuRow()">+ Add Menu</button></div>
     </div>
 
     <div class="card">
@@ -301,18 +301,26 @@
             const row = container.children[i]; 
             const type = row.getAttribute('data-type');
             if(type === 'item') {
+                const cb = row.querySelector('input[type="checkbox"]');
                 data.push({ 
                     type: 'item', 
                     desc: row.querySelector('.i-desc').value, 
                     remark: row.querySelector('.i-remark').value, 
                     qty: parseFloat(row.querySelector('.i-qty').value) || 0, 
                     price: parseFloat(row.querySelector('.i-price').value) || 0, 
+                    time: row.querySelector('.i-time') ? row.querySelector('.i-time').value : '',
+                    date: row.querySelector('.i-date') ? row.querySelector('.i-date').value : '',
+                    tilChecked: cb ? cb.checked : false,
+                    tilDate: row.querySelector('.i-til-date') ? row.querySelector('.i-til-date').value : '',
                     isLogistics: false,
                     menus: [] 
                 });
             } else if (type === 'menu') { 
                 if(data.length > 0) {
-                    data[data.length-1].menus.push(row.querySelector('.i-desc').value);
+                    data[data.length-1].menus.push({
+                        desc: row.querySelector('.i-desc').value,
+                        remark: row.querySelector('.i-menu-remark') ? row.querySelector('.i-menu-remark').value : ''
+                    });
                 }
             }
         }
@@ -338,8 +346,26 @@
     function resetDates() { document.getElementById('invDate').valueAsDate = new Date(); document.getElementById('eventDate').valueAsDate = new Date(); }
     function addTimeInput(val="") { const c=document.getElementById('timeContainer'); const i=document.createElement('input'); i.type='time'; i.className='evt-time-input'; i.value=val; i.style.width="100%"; c.appendChild(i); }
     function removeTimeInput() { const c=document.getElementById('timeContainer'); if(c.children.length>0) c.removeChild(c.lastChild); }
-    function addItemRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-inputs" data-type="item" id="row-${id}"><input placeholder="ITEM NAME" class="i-desc" oninput="this.value=this.value.toUpperCase()"><input placeholder="Remark" class="i-remark"><input type="number" placeholder="Qty" class="i-qty"><input type="number" placeholder="Price" class="i-price"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
-    function addMenuRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail" class="i-desc"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function addItemRow() { 
+        const id=Date.now(); 
+        document.getElementById('items-container').insertAdjacentHTML('beforeend', `
+            <div class="row-inputs" data-type="item" id="row-${id}" style="flex-direction:column; gap:5px;">
+                <div style="display:flex; width:100%; gap:5px;">
+                    <input placeholder="Type of Services" list="servicesList" class="i-desc" oninput="this.value=this.value.toUpperCase()">
+                    <input placeholder="Remark" class="i-remark">
+                    <input type="number" placeholder="Qty" class="i-qty">
+                    <input type="number" placeholder="Price" class="i-price">
+                    <button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button>
+                </div>
+                <div style="display:flex; width:100%; gap:5px; align-items:center;">
+                    <input type="time" class="i-time" style="flex:1;">
+                    <input type="date" class="i-date" style="flex:1;">
+                    <label style="margin:0 5px; font-weight:normal; display:flex; align-items:center; gap:2px;"><input type="checkbox" style="width:auto; margin:0;" onchange="document.getElementById('til-${id}').style.display=this.checked?'block':'none'"> Til</label>
+                    <input type="date" class="i-til-date" id="til-${id}" style="flex:1; display:none;">
+                </div>
+            </div>`); 
+    }
+    function addMenuRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail" class="i-desc" style="flex:2;"><input placeholder="Remark" class="i-menu-remark" style="flex:1;"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
     function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
     function toggleLogistics() { const m=document.getElementById('deliveryMethod').value; document.getElementById('logistics-box').style.display = (m==='Self Pick Up')?'none':'block'; document.getElementById('setupFeeRow').style.display = (m==='Set Up')?'flex':'none'; document.getElementById('logQtyLabel').innerText=(m==='Delivery')?'Qty (Trips)':'Qty (Trans)'; }
     function toggleDiscount() { document.getElementById('discount-box').style.display=document.getElementById('chkDiscount').checked?'block':'none'; }
@@ -363,11 +389,11 @@
             st.innerText="DB: Connected"; st.style.background="#28a745";
             db.ref('settings').on('value', s => { if(s.val()) { currentSettings=s.val(); applySettingsToUI(s.val()); }});
             db.ref('counters').on('value', s => { if(s.val()) { liveInvNo=s.val().invoice||1771; liveQtNo=s.val().quotation||238; updateDocNoDisplay(); } else db.ref('counters').set({invoice:1771,quotation:238}); });
-            db.ref('lists').on('value', s => { if(s.val()) { listsData=s.val(); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; if(document.getElementById('listManageModal').style.display==='block') renderList(); }});
+            db.ref('lists').on('value', s => { if(s.val()) { listsData=s.val(); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; if(document.getElementById('listManageModal').style.display==='block') renderList(); updateDatalists(); }});
         } else {
             st.innerText="Mode: Local"; st.style.background="#dc3545";
             const s=localStorage.getItem('compSettings'); if(s) applySettingsToUI(JSON.parse(s));
-            const l=localStorage.getItem('compLists'); if(l) { listsData=JSON.parse(l); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; }
+            const l=localStorage.getItem('compLists'); if(l) { listsData=JSON.parse(l); if(!listsData.services) listsData.services=[]; if(!listsData.menus) listsData.menus=[]; updateDatalists(); }
             liveInvNo=parseInt(localStorage.getItem('lastInvNo'))||1771; liveQtNo=parseInt(localStorage.getItem('lastQtNo'))||238; updateDocNoDisplay();
         }
     }
@@ -652,6 +678,21 @@
                 grandTotal += total;
                 
                 let descHtml = item.desc;
+                let extraParts = [];
+                if(item.date) {
+                    let dStr = formatDateDDMMYYYY(item.date);
+                    if(item.tilChecked && item.tilDate) {
+                        dStr += " to " + formatDateDDMMYYYY(item.tilDate);
+                    }
+                    extraParts.push(dStr);
+                }
+                if(item.time) {
+                    extraParts.push(formatTime12hr(item.time));
+                }
+                if(extraParts.length > 0) {
+                    descHtml += `<br><span style="font-size:10px; color:#555; font-weight:normal;">(${extraParts.join(', ')})</span>`;
+                }
+                
                 let pDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + item.price.toFixed(2);
                 let tDisp = (item.desc === 'SELF PICK UP') ? '-' : 'RM ' + total.toFixed(2);
                 let qDisp = (item.desc === 'SELF PICK UP') ? '-' : item.qty;
@@ -660,7 +701,12 @@
                 
                 if(item.menus && item.menus.length > 0) {
                     item.menus.forEach(m => {
-                        tbody.innerHTML += `<tr><td></td><td style="padding-left:20px;">- ${m}</td><td></td><td></td><td></td></tr>`;
+                        let mDesc = typeof m === 'string' ? m : m.desc;
+                        let mRemark = typeof m === 'object' && m.remark ? m.remark : '';
+                        tbody.innerHTML += `<tr><td></td><td style="padding-left:20px;">- ${mDesc}</td><td></td><td></td><td></td></tr>`;
+                        if(mRemark) {
+                            tbody.innerHTML += `<tr><td></td><td style="padding-left:35px; color:#666; font-size:10px; font-style:italic;">* ${mRemark.replace(/\n/g,'<br>')}</td><td></td><td></td><td></td></tr>`;
+                        }
                     });
                 }
                 if(item.remark) {
@@ -706,6 +752,23 @@
     function saveLists() {
         if(db) db.ref('lists').set(listsData);
         else localStorage.setItem('compLists', JSON.stringify(listsData));
+    }
+    
+    function updateDatalists() {
+        let dl = document.getElementById('servicesList');
+        if(!dl) {
+            dl = document.createElement('datalist');
+            dl.id = 'servicesList';
+            document.body.appendChild(dl);
+        }
+        dl.innerHTML = '';
+        if(listsData.services) {
+            listsData.services.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                dl.appendChild(opt);
+            });
+        }
     }
     
     function addListItem() {
