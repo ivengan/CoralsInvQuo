@@ -543,12 +543,10 @@
         const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
-        const backBtn = document.getElementById('backBtn');
         
         wrapper.style.display = 'flex';
         ctrls.style.display = 'flex'; 
         ui.style.display = 'none';
-        backBtn.style.display = 'none';
         window.scrollTo(0,0);
         
         document.getElementById('invoice-paper').style.transform = '';
@@ -559,12 +557,10 @@
         const wrapper = document.getElementById('preview-wrapper');
         const ui = document.getElementById('editorUI');
         const ctrls = document.getElementById('preview-controls');
-        const backBtn = document.getElementById('backBtn');
         
         wrapper.style.display = 'none';
         ctrls.style.display = 'none';
         ui.style.display = 'block';
-        backBtn.style.display = 'block';
     }
     
     // --- CONVERT ONLY ---
@@ -572,7 +568,7 @@
         const paper = document.getElementById('invoice-paper');
         const ctrls = document.getElementById('preview-controls');
         const btn = document.getElementById('btnConvert');
-        const f = (document.getElementById('docType').value==='INVOICE') ? \`CCIR-\${document.getElementById('invNo').value} - \${document.getElementById('clientName').value}.pdf\` : \`CEQ\${document.getElementById('invNo').value} - \${document.getElementById('clientName').value}.pdf\`;
+        const f = (document.getElementById('docType').value==='INVOICE') ? `CCIR-${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf` : `CEQ${document.getElementById('invNo').value} - ${document.getElementById('clientName').value}.pdf`;
         
         const originalText = btn.innerText;
         btn.innerText = "Generating...";
@@ -670,7 +666,29 @@
         }, 100);
     }
 
-    function exportExcel() { const d = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ]; const i = getItemsFromDOM(); i.forEach(x => { if(x.type === 'item') d.push([x.desc, x.qty, x.price, x.qty*x.price]); else d.push([" - " + x.desc]); }); const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(d); XLSX.utils.book_append_sheet(wb, ws, "Invoice"); XLSX.writeFile(wb, "Corals_Data.xlsx"); }
+    function exportExcel() {
+        const d = [ ["Doc No", document.getElementById('invNo').value], ["Client", document.getElementById('clientName').value], ["Total", document.getElementById('dispTotal').innerText], ["",""], ["Description", "Qty", "Price", "Total"] ];
+        const items = getItemsFromDOM();
+        items.forEach(x => {
+            if(x.type === 'item') {
+                d.push([x.desc, x.qty, x.price, x.qty * x.price]);
+                if(x.menus && x.menus.length > 0) {
+                    x.menus.forEach(m => {
+                        let mDesc = typeof m === 'string' ? m : m.desc;
+                        let mRem = typeof m === 'object' && m.remark ? ` (${m.remark})` : '';
+                        d.push([" - " + mDesc + mRem, "", "", ""]);
+                    });
+                }
+                if(x.remark) {
+                    d.push(["   Remark: " + x.remark, "", "", ""]);
+                }
+            }
+        });
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(d);
+        XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+        XLSX.writeFile(wb, "Corals_Data.xlsx");
+    }
     function togglePreview() { enterPreviewMode(); } 
     function clearForm() { if(!confirm("Clear?")) return; document.querySelectorAll('input:not([readonly]), textarea').forEach(i => i.value = ''); document.getElementById('items-container').innerHTML = ''; addItemRow(); resetDates(); updateDocNoDisplay(); }
 
