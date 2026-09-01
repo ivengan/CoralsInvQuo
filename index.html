@@ -367,7 +367,7 @@
                 </div>
             </div>`); 
     }
-    function addMenuRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail" class="i-desc" style="flex:2;"><input placeholder="Remark" class="i-menu-remark" style="flex:1;"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
+    function addMenuRow() { const id=Date.now(); document.getElementById('items-container').insertAdjacentHTML('beforeend', `<div class="row-menu" data-type="menu" id="row-${id}"><span style="padding:10px; font-weight:bold; color:#17a2b8;">↳</span><input placeholder="Menu Detail" list="menusList" class="i-desc" style="flex:2;"><input placeholder="Remark" class="i-menu-remark" style="flex:1;"><button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button></div>`); }
     function removeRow(id) { document.getElementById(`row-${id}`).remove(); }
     function toggleLogistics() { const m=document.getElementById('deliveryMethod').value; document.getElementById('logistics-box').style.display = (m==='Self Pick Up')?'none':'block'; document.getElementById('setupFeeRow').style.display = (m==='Set Up')?'flex':'none'; document.getElementById('logQtyLabel').innerText=(m==='Delivery')?'Qty (Trips)':'Qty (Trans)'; }
     function toggleDiscount() { document.getElementById('discount-box').style.display=document.getElementById('chkDiscount').checked?'block':'none'; }
@@ -757,19 +757,18 @@
     }
     
     function updateDatalists() {
-        let dl = document.getElementById('servicesList');
-        if(!dl) {
-            dl = document.createElement('datalist');
-            dl.id = 'servicesList';
-            document.body.appendChild(dl);
-        }
-        dl.innerHTML = '';
+        let dlS = document.getElementById('servicesList');
+        if(!dlS) { dlS = document.createElement('datalist'); dlS.id = 'servicesList'; document.body.appendChild(dlS); }
+        dlS.innerHTML = '';
         if(listsData.services) {
-            listsData.services.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item;
-                dl.appendChild(opt);
-            });
+            listsData.services.forEach(item => { const opt = document.createElement('option'); opt.value = item; dlS.appendChild(opt); });
+        }
+        
+        let dlM = document.getElementById('menusList');
+        if(!dlM) { dlM = document.createElement('datalist'); dlM.id = 'menusList'; document.body.appendChild(dlM); }
+        dlM.innerHTML = '';
+        if(listsData.menus) {
+            listsData.menus.forEach(item => { const opt = document.createElement('option'); opt.value = item; dlM.appendChild(opt); });
         }
     }
     
