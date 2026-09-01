@@ -351,17 +351,19 @@
         document.getElementById('items-container').insertAdjacentHTML('beforeend', `
             <div class="row-inputs" data-type="item" id="row-${id}" style="flex-direction:column; gap:5px;">
                 <div style="display:flex; width:100%; gap:5px;">
-                    <input placeholder="Type of Services" list="servicesList" class="i-desc" oninput="this.value=this.value.toUpperCase()">
-                    <input placeholder="Remark" class="i-remark">
-                    <input type="number" placeholder="Qty" class="i-qty">
-                    <input type="number" placeholder="Price" class="i-price">
+                    <input placeholder="Type of Services" list="servicesList" class="i-desc" style="flex:1;" oninput="this.value=this.value.toUpperCase()">
                     <button class="btn-danger" style="width:40px;" onclick="removeRow('${id}')">X</button>
                 </div>
-                <div style="display:flex; width:100%; gap:5px; align-items:center;">
-                    <input type="time" class="i-time" style="flex:1;">
-                    <input type="date" class="i-date" style="flex:1;">
-                    <label style="margin:0 5px; font-weight:normal; display:flex; align-items:center; gap:2px;"><input type="checkbox" style="width:auto; margin:0;" onchange="document.getElementById('til-${id}').style.display=this.checked?'block':'none'"> Til</label>
-                    <input type="date" class="i-til-date" id="til-${id}" style="flex:1; display:none;">
+                <div style="display:flex; width:100%; gap:5px; align-items:center; flex-wrap:wrap;">
+                    <input type="number" placeholder="Qty" class="i-qty" style="flex:1; min-width:50px; padding:10px 5px;">
+                    <input type="number" placeholder="Price" class="i-price" style="flex:1; min-width:60px; padding:10px 5px;">
+                    <input type="time" class="i-time" style="flex:1.5; min-width:90px; padding:10px 2px;">
+                    <input type="date" class="i-date" style="flex:2; min-width:110px; padding:10px 2px;">
+                    <label style="margin:0; font-weight:normal; display:flex; align-items:center; gap:2px;"><input type="checkbox" style="width:auto; margin:0;" onchange="document.getElementById('til-${id}').style.display=this.checked?'block':'none'"> Til</label>
+                    <input type="date" class="i-til-date" id="til-${id}" style="flex:2; min-width:110px; padding:10px 2px; display:none;">
+                </div>
+                <div style="display:flex; width:100%; gap:5px;">
+                    <input placeholder="Remark(s)" class="i-remark" style="width:100%;">
                 </div>
             </div>`); 
     }
